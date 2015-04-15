@@ -432,9 +432,20 @@ class Sale:
             )
         except PyUPSException, e:
             error = e[0].split(':')
-            if error[0] in ['Hard-111285', 'Hard-111280']:
-                # Invalid Address, can't sit quite !
-                self.raise_user_error(unicode(error[1]))
+            if error[0] in ['Hard-111285', 'Hard-111286']:
+                # Can't sit quite !
+                # Hard-111285: The postal code %postal% is invalid for %state%
+                #   %country%.
+                # Hard-111286: %state% is not a valid state abbreviation for
+                #   %country%.
+                self.raise_user_error('InvalidAddress: %s' % unicode(error[1]))
+            if error[0] in ['Hard-111035', 'Hard-111036']:
+                # Can't sit quite !
+                # Hard-111035: The maximum per package weight for that service
+                #   from the selected country is %country.maxPkgWeight% pounds.
+                # Hard-111036: The maximum per package weight for that service
+                #   from the selected country is %country.maxPkgWeight% kg.
+                self.raise_user_error('WeightExceed: %s' % unicode(error[1]))
             if silent:
                 return []
             self.raise_user_error(unicode(e[0]))

@@ -7,18 +7,13 @@
     :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
     :license: GPLv3, see LICENSE for more details.
 """
+import os
+
 from decimal import Decimal
 from time import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-import sys
-import os
-DIR = os.path.abspath(os.path.normpath(
-    os.path.join(__file__, '..', '..', '..', '..', '..', 'trytond')
-))
-if os.path.isdir(DIR):
-    sys.path.insert(0, os.path.dirname(DIR))
 
 import unittest
 import trytond.tests.test_tryton
