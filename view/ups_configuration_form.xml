@@ -6,7 +6,7 @@
         <label name="user_id"/>
         <field name="user_id"/>
         <label name="password"/>
-        <field name="password"/>
+        <field name="password" widget="password"/>
         <label name="is_test"/>
         <field name="is_test"/>
 
