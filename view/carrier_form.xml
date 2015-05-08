@@ -1,0 +1,21 @@
+<data>
+    <xpath expr="/form/field[@name='carrier_cost_method']" position="after">
+        <group string="UPS Configuration" states="{'invisible': Eval('carrier_cost_method') != 'ups'}" id="ups_configuration" colspan="4">
+            <label name="ups_license_key"/>
+            <field name="ups_license_key"/>
+            <label name="ups_user_id"/>
+            <field name="ups_user_id"/>
+            <label name="ups_password"/>
+            <field name="ups_password"/>
+            <label name="ups_is_test"/>
+            <field name="ups_is_test"/>
+
+            <label name="ups_shipper_no"/>
+            <field name="ups_shipper_no"/>
+            <label name="ups_negotiated_rates"/>
+            <field name="ups_negotiated_rates"/>
+            <label name="ups_uom_system"/>
+            <field name="ups_uom_system"/>
+        </group>
+    </xpath>
+</data>

@@ -4,7 +4,7 @@
 
     Test ups Integration
 
-    :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
+    :copyright: (c) 2014-2015 by Openlabs Technologies & Consulting (P) Limited
     :license: GPLv3, see LICENSE for more details.
 """
 import os
@@ -33,7 +33,6 @@ class TestUPS(unittest.TestCase):
         self.Address = POOL.get('party.address')
         self.Sale = POOL.get('sale.sale')
         self.SaleConfig = POOL.get('sale.configuration')
-        self.UPSConfiguration = POOL.get('ups.configuration')
         self.UPSService = POOL.get('ups.service')
         self.Product = POOL.get('product.product')
         self.Uom = POOL.get('product.uom')
@@ -224,18 +223,6 @@ class TestUPS(unittest.TestCase):
             'code': '02',
         }])
 
-        # UPS Configuration
-        self.UPSConfiguration.create([{
-            'license_key': os.environ['UPS_LICENSE_NO'],
-            'user_id': os.environ['UPS_USER_ID'],
-            'password': os.environ['UPS_PASSWORD'],
-            'shipper_no': os.environ['UPS_SHIPPER_NO'],
-            'is_test': True,
-            'uom_system': '01',
-        }])
-        self.CarrierConfig.create([{
-            'default_validation_provider': 'ups',
-        }])
         self.SaleConfig.create([{
             'ups_service_type': self.ups_service.id,
         }])
@@ -324,6 +311,16 @@ class TestUPS(unittest.TestCase):
             'party': carrier_party.id,
             'carrier_product': carrier_product.id,
             'carrier_cost_method': 'ups',
+            'ups_license_key': os.environ['UPS_LICENSE_NO'],
+            'ups_user_id': os.environ['UPS_USER_ID'],
+            'ups_password': os.environ['UPS_PASSWORD'],
+            'ups_shipper_no': os.environ['UPS_SHIPPER_NO'],
+            'ups_is_test': True,
+            'ups_uom_system': '01',
+        }])
+
+        self.CarrierConfig.create([{
+            'default_validation_carrier': self.carrier.id,
         }])
 
         self.sale_party, = self.Party.create([{
@@ -386,6 +383,9 @@ class TestUPS(unittest.TestCase):
     def test_0010_generate_ups_labels(self):
         """Test case to generate UPS labels.
         """
+        Package = POOL.get('stock.package')
+        ModelData = POOL.get('ir.model.data')
+
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
 
             # Call method to create sale order
@@ -398,9 +398,9 @@ class TestUPS(unittest.TestCase):
             })
 
             # Before generating labels
-            # There is no tracking number generated
-            # And no attachment cerated for labels
-            self.assertFalse(shipment.tracking_number)
+            # There are no packages generated
+            # And no attachment created for labels
+            self.assertFalse(shipment.packages)
             attatchment = self.IrAttachment.search([])
             self.assertEqual(len(attatchment), 0)
 
@@ -409,10 +409,27 @@ class TestUPS(unittest.TestCase):
             shipment.pack([shipment])
 
             with Transaction().set_context(company=self.company.id):
+                with self.assertRaises(UserError):
+                    shipment.make_ups_labels()
+
+                # Create a package
+                type_id = ModelData.get_id(
+                    "shipping", "shipment_package_type"
+                )
+                package, = Package.create([{
+                    'shipment': '%s,%d' % (shipment.__name__, shipment.id),
+                    'type': type_id,
+                    'moves': [('add', shipment.outgoing_moves)],
+                }])
                 # Call method to generate labels.
                 shipment.make_ups_labels()
 
-            self.assertTrue(shipment.tracking_number)
+            self.assertTrue(shipment.packages)
+            # Check if by default 1 package was created
+            self.assertEqual(len(shipment.packages), 1)
+            self.assertTrue(shipment.packages[0].tracking_number)
+            self.assertEqual(
+                shipment.packages[0].moves, shipment.outgoing_moves)
             self.assertTrue(
                 self.IrAttachment.search([
                     ('resource', '=', 'stock.shipment.out,%s' % shipment.id)
@@ -423,20 +440,78 @@ class TestUPS(unittest.TestCase):
         """
         Test case to generate UPS labels using wizard
         """
+        Package = POOL.get('stock.package')
+        ModelData = POOL.get('ir.model.data')
+
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
 
             # Call method to create sale order
             self.setup_defaults()
-            self.create_sale(self.sale_party)
 
-            shipment, = self.StockShipmentOut.search([])
+            # Create sale order
+            party = self.sale_party
+            sale, = self.Sale.create([{
+                'reference': 'S-1001',
+                'payment_term': self.payment_term,
+                'party': party.id,
+                'invoice_address': party.addresses[0].id,
+                'shipment_address': party.addresses[0].id,
+                'carrier': self.carrier.id,
+                'ups_service_type': self.ups_service2.id,
+                'ups_saturday_delivery': True,
+                'lines': [
+                    ('create', [{
+                        'type': 'line',
+                        'quantity': 1,
+                        'product': self.product,
+                        'unit_price': Decimal('10.00'),
+                        'description': 'Test Description1',
+                        'unit': self.product.template.default_uom,
+                    }, {
+                        'type': 'line',
+                        'quantity': 2,
+                        'product': self.product,
+                        'unit_price': Decimal('10.00'),
+                        'description': 'Test Description1',
+                        'unit': self.product.template.default_uom,
+                    }]),
+                ]
+            }])
+
+            self.StockLocation.write([sale.warehouse], {
+                'address': self.company.party.addresses[0].id,
+            })
+
+            # Confirm and process sale order
+            self.assertEqual(len(sale.lines), 2)
+            self.Sale.quote([sale])
+            self.assertEqual(len(sale.lines), 3)
+            self.Sale.confirm([sale])
+            self.Sale.process([sale])
+
+            self.assertEqual(len(sale.shipments), 1)
+            shipment = sale.shipments[0]
+            self.assertEqual(len(shipment.outgoing_moves), 2)
+
             self.StockShipmentOut.write([shipment], {
                 'code': str(int(time())),
             })
+            type_id = ModelData.get_id(
+                "shipping", "shipment_package_type"
+            )
 
-            # Before generating labels, there is no tracking number generated
-            # And no attachment created for labels
-            self.assertFalse(shipment.tracking_number)
+            package1, package2 = Package.create([{
+                'shipment': '%s,%d' % (shipment.__name__, shipment.id),
+                'type': type_id,
+                'moves': [('add', [shipment.outgoing_moves[0]])],
+            }, {
+                'shipment': '%s,%d' % (shipment.__name__, shipment.id),
+                'type': type_id,
+                'moves': [('add', [shipment.outgoing_moves[1]])],
+            }])
+
+            # Before generating labels
+            # There are no attachment created for labels
             attatchment = self.IrAttachment.search([])
             self.assertEqual(len(attatchment), 0)
 
@@ -456,6 +531,7 @@ class TestUPS(unittest.TestCase):
 
                 self.assertEqual(result['shipment'], shipment.id)
                 self.assertEqual(result['carrier'], shipment.carrier.id)
+                self.assertEqual(result['no_of_packages'], 2)
 
                 generate_label.start.shipment = shipment.id
                 generate_label.start.override_weight = Decimal('0')
@@ -474,7 +550,8 @@ class TestUPS(unittest.TestCase):
                 )
 
                 generate_label.ups_config.ups_service_type = self.ups_service2
-                generate_label.ups_config.ups_package_type = '01'
+                # Customer Supplied Package
+                generate_label.ups_config.ups_package_type = '02'
                 generate_label.ups_config.ups_saturday_delivery = False
 
                 result = generate_label.default_generate({})
@@ -487,17 +564,18 @@ class TestUPS(unittest.TestCase):
                     )
                 )
 
-            self.assertTrue(shipment.tracking_number)
+            self.assertTrue(package1.tracking_number)
+            self.assertTrue(package2.tracking_number)
             self.assertEqual(shipment.carrier, self.carrier)
             self.assertNotEqual(shipment.cost, Decimal('0'))
             self.assertEqual(shipment.cost_currency, self.currency)
             self.assertEqual(shipment.ups_service_type, self.ups_service2)
-            self.assertEqual(shipment.ups_package_type, '01')
+            self.assertEqual(shipment.ups_package_type, '02')
             self.assertEqual(shipment.ups_saturday_delivery, False)
             self.assertTrue(
                 self.IrAttachment.search([
                     ('resource', '=', 'stock.shipment.out,%s' % shipment.id)
-                ], count=True) > 0
+                ], count=True) == 2
             )
 
     def test_0025_ups_readonly(self):
@@ -585,6 +663,7 @@ class TestUPS(unittest.TestCase):
                     'party': self.sale_party.id,
                     'invoice_address': self.sale_party.addresses[0].id,
                     'shipment_address': self.sale_party.addresses[0].id,
+                    'carrier': self.carrier.id,
                     'ups_service_type': self.ups_service.id,
                     'ups_saturday_delivery': True,
                     'lines': [

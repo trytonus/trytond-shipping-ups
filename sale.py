@@ -6,6 +6,7 @@
     :license: BSD, see LICENSE for more details.
 """
 from decimal import Decimal, ROUND_UP
+from logbook import Logger
 
 from lxml import etree
 from lxml.builder import E
@@ -18,6 +19,8 @@ from trytond.pyson import Eval
 
 __all__ = ['Configuration', 'Sale']
 __metaclass__ = PoolMeta
+
+logger = Logger('trytond_ups')
 
 
 UPS_PACKAGE_TYPES = [
@@ -72,12 +75,8 @@ class Sale:
         """
         Returns uom for ups
         """
-        UPSConfiguration = Pool().get('ups.configuration')
-
-        weight_uom = UPSConfiguration(1).weight_uom
-
-        if self.is_ups_shipping and weight_uom:
-            return weight_uom
+        if self.is_ups_shipping:
+            return self.carrier.ups_weight_uom
 
         return super(Sale, self)._get_weight_uom()
 
@@ -196,20 +195,18 @@ class Sale:
         """
         Return UPS Packages XML
         """
-        UPSConfiguration = Pool().get('ups.configuration')
-
-        ups_config = UPSConfiguration(1)
+        carrier = self.carrier
 
         package_type = RatingService.packaging_type(
             Code=self.ups_package_type
         )
 
-        weight = self._get_package_weight(ups_config.weight_uom).quantize(
+        weight = self._get_package_weight(carrier.ups_weight_uom).quantize(
             Decimal('.01'), rounding=ROUND_UP
         )
         package_weight = RatingService.package_weight_type(
             Weight=str(weight),
-            Code=ups_config.weight_uom_code,
+            Code=carrier.ups_weight_uom_code,
         )
         package_service_options = RatingService.package_service_options_type(
             RatingService.insured_value_type(MonetaryValue='0')
@@ -235,9 +232,7 @@ class Sale:
                               package type
                      'shop' - to get a rates list
         """
-        UPSConfiguration = Pool().get('ups.configuration')
-
-        ups_config = UPSConfiguration(1)
+        carrier = self.carrier
 
         assert mode in ('rate', 'shop'), "Mode should be 'rate' or 'shop'"
 
@@ -247,13 +242,13 @@ class Sale:
         shipment_args = self._get_ups_packages()
 
         shipment_args.extend([
-            self.warehouse.address.to_ups_shipper(),        # Shipper
+            self.warehouse.address.to_ups_shipper(carrier=carrier),  # Shipper
             self.shipment_address.to_ups_to_address(),      # Ship to
             self._get_ship_from_address().to_ups_from_address(),   # Ship from
 
         ])
 
-        if ups_config.negotiated_rates:
+        if carrier.ups_negotiated_rates:
             shipment_args.append(
                 RatingService.rate_information_type(negotiated=True)
             )
@@ -271,21 +266,20 @@ class Sale:
             E.Shipment(*shipment_args), RequestOption=request_option
         )
 
-    def _get_ups_rate_from_rated_shipment(cls, rated_shipment):
+    def _get_ups_rate_from_rated_shipment(self, rated_shipment):
         """
         The rated_shipment is an xml container in the response which has the
         standard rates and negotiated rates. This method should extract the
         value and return it with the currency
         """
         Currency = Pool().get('currency.currency')
-        UPSConfiguration = Pool().get('ups.configuration')
 
-        ups_config = UPSConfiguration(1)
+        carrier = self.carrier
 
         currency, = Currency.search([
             ('code', '=', str(rated_shipment.TotalCharges.CurrencyCode))
         ])
-        if ups_config.negotiated_rates and \
+        if carrier.ups_negotiated_rates and \
                 hasattr(rated_shipment, 'NegotiatedRates'):
             # If there are negotiated rates return that instead
             charges = rated_shipment.NegotiatedRates.NetSummaryCharges
@@ -303,26 +297,24 @@ class Sale:
 
         :returns: The shipping cost with currency
         """
-        UPSConfiguration = Pool().get('ups.configuration')
-        Carrier = Pool().get('carrier')
+        carrier = self.carrier
 
-        ups_config = UPSConfiguration(1)
-        carrier, = Carrier.search(['carrier_cost_method', '=', 'ups'])
+        assert carrier.carrier_cost_method == 'ups'
 
         rate_request = self._get_rate_request_xml()
-        rate_api = ups_config.api_instance(call="rate")
+        rate_api = carrier.ups_api_instance(call="rate")
 
         # Instead of shopping for rates, just get a price for the given
         # service and package type to the destination we know.
         rate_api.RequestOption = E.RequestOption('Rate')
 
         # Logging.
-        ups_config.logger.debug(
+        logger.debug(
             'Making Rate API Request for shipping cost of'
             'Sale ID: {0} and Carrier ID: {1}'
             .format(self.id, carrier.id)
         )
-        ups_config.logger.debug(
+        logger.debug(
             '--------RATE API REQUEST--------\n%s'
             '\n--------END REQUEST--------'
             % etree.tostring(rate_request, pretty_print=True)
@@ -332,7 +324,7 @@ class Sale:
             response = rate_api.request(rate_request)
 
             # Logging.
-            ups_config.logger.debug(
+            logger.debug(
                 '--------RATE API RESPONSE--------\n%s'
                 '\n--------END RESPONSE--------'
                 % etree.tostring(response, pretty_print=True)
@@ -401,22 +393,18 @@ class Sale:
         """
         Call the rates service and get possible quotes for shipping the product
         """
-        UPSConfiguration = Pool().get('ups.configuration')
-        Carrier = Pool().get('carrier')
-
-        ups_config = UPSConfiguration(1)
-        carrier, = Carrier.search(['carrier_cost_method', '=', 'ups'])
+        carrier = self.carrier
 
         rate_request = self._get_rate_request_xml(mode='shop')
-        rate_api = ups_config.api_instance(call="rate")
+        rate_api = carrier.ups_api_instance(call="rate")
 
         # Logging.
-        ups_config.logger.debug(
+        logger.debug(
             'Making Rate API Request for shipping rates of'
             'Sale ID: {0} and Carrier ID: {1}'
             .format(self.id, carrier.id)
         )
-        ups_config.logger.debug(
+        logger.debug(
             '--------RATE API REQUEST--------\n%s'
             '\n--------END REQUEST--------'
             % etree.tostring(rate_request, pretty_print=True)
@@ -425,7 +413,7 @@ class Sale:
         try:
             response = rate_api.request(rate_request)
             # Logging.
-            ups_config.logger.debug(
+            logger.debug(
                 '--------START RATE API RESPONSE--------\n%s'
                 '\n--------END RESPONSE--------'
                 % etree.tostring(response, pretty_print=True)

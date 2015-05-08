@@ -10,6 +10,7 @@ import re
 # Remove when we are on python 3.x :)
 from orderedset import OrderedSet
 from lxml import etree
+from logbook import Logger
 
 from ups.shipping_package import ShipmentConfirm
 from ups.base import PyUPSException
@@ -21,6 +22,7 @@ __all__ = ['Address']
 __metaclass__ = PoolMeta
 
 digits_only_re = re.compile('\D+')
+logger = Logger('trytond_ups')
 
 
 class Address:
@@ -155,14 +157,13 @@ class Address:
 
         return ShipmentConfirm.ship_to_type(self._get_ups_address_xml(), **vals)
 
-    def to_ups_shipper(self):
+    def to_ups_shipper(self, carrier):
         '''
         Converts party address to UPS `Shipper Address`.
 
         :return: Returns instance of ShipperAddress
         '''
         Company = Pool().get('company.company')
-        UPSConfiguration = Pool().get('ups.configuration')
 
         vals = {}
         if not self.party.phone:
@@ -185,7 +186,7 @@ class Address:
             'Name': self.name or self.party.name,
             'AttentionName': self.name or self.party.name,
             'PhoneNumber': digits_only_re.sub('', self.party.phone),
-            'ShipperNumber': UPSConfiguration(1).shipper_no,
+            'ShipperNumber': carrier.ups_shipper_no,
         }
 
         fax = self.party.fax
@@ -212,12 +213,20 @@ class Address:
             automatically called by the address validation API of
             trytond-shipping module.
         """
-        UPSConfiguration = Pool().get('ups.configuration')
         Subdivision = Pool().get('country.subdivision')
         Address = Pool().get('party.address')
+        CarrierConfig = Pool().get('carrier.configuration')
 
-        ups_config = UPSConfiguration(1)
-        api_instance = ups_config.api_instance(call='address_val')
+        config = CarrierConfig(1)
+        carrier = config.default_validation_carrier
+
+        if not carrier:
+            # TODO: Make this translatable error message
+            self.raise_user_error(
+                "Validation Carrier is not selected in carrier configuration."
+            )
+
+        api_instance = carrier.ups_api_instance(call='address_val')
 
         if not self.country:
             # XXX: Either this or assume it is the US of A
@@ -240,11 +249,11 @@ class Address:
         address_request = api_instance.request_type(**values)
 
         # Logging.
-        ups_config.logger.debug(
+        logger.debug(
             'Making Address Validation Request to UPS for Address Id: {0}'
             .format(self.id)
         )
-        ups_config.logger.debug(
+        logger.debug(
             '--------AV API REQUEST--------\n%s'
             '\n--------END REQUEST--------'
             % etree.tostring(address_request, pretty_print=True)
@@ -254,7 +263,7 @@ class Address:
             address_response = api_instance.request(address_request)
 
             # Logging.
-            ups_config.logger.debug(
+            logger.debug(
                 '--------AV API RESPONSE--------\n%s'
                 '\n--------END RESPONSE--------'
                 % etree.tostring(address_response, pretty_print=True)

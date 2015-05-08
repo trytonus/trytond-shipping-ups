@@ -13,6 +13,5 @@
             <field name="type">form</field>
             <field name="name">shipping_ups_configuration_form</field>
         </record>
-
     </data>
 </tryton>

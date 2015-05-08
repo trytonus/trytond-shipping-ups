@@ -10,9 +10,8 @@ from party import Address
 from carrier import Carrier, UPSService, CarrierConfig
 from sale import Configuration, Sale
 from stock import (
-    ShipmentOut, StockMove, ShippingUps, GenerateShippingLabel
+    ShipmentOut, StockMove, ShippingUps, GenerateShippingLabel, Package
 )
-from configuration import UPSConfiguration
 
 
 def register():
@@ -21,12 +20,12 @@ def register():
         Carrier,
         CarrierConfig,
         UPSService,
-        UPSConfiguration,
         Configuration,
         Sale,
         StockMove,
         ShipmentOut,
         ShippingUps,
+        Package,
         module='shipping_ups', type_='model'
     )
 
