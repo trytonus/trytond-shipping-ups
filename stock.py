@@ -5,7 +5,7 @@
     :copyright: (c) 2014-2015 by Openlabs Technologies & Consulting (P) Limited
     :license: BSD, see LICENSE for more details.
 """
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal
 import base64
 from lxml import etree
 from logbook import Logger
@@ -491,12 +491,8 @@ class Package:
             Code=shipment.ups_package_type
         )  # FIXME: Support multiple packaging type
 
-        weight = self.package_weight.quantize(
-            Decimal('.01'), rounding=ROUND_UP
-        )
-
         package_weight = ShipmentConfirm.package_weight_type(
-            Weight=str(weight),
+            Weight="%.2f" % self.weight,
             Code=carrier.ups_weight_uom_code,
         )
         package_service_options = ShipmentConfirm.package_service_options_type(

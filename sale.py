@@ -5,7 +5,7 @@
     :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
     :license: BSD, see LICENSE for more details.
 """
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal
 from logbook import Logger
 
 from lxml import etree
@@ -201,11 +201,8 @@ class Sale:
             Code=self.ups_package_type
         )
 
-        weight = self._get_package_weight(carrier.ups_weight_uom).quantize(
-            Decimal('.01'), rounding=ROUND_UP
-        )
         package_weight = RatingService.package_weight_type(
-            Weight=str(weight),
+            Weight="%.2f" % self._get_package_weight(carrier.ups_weight_uom),
             Code=carrier.ups_weight_uom_code,
         )
         package_service_options = RatingService.package_service_options_type(
