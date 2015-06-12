@@ -8,4 +8,6 @@
     <field name="display_name"/>
     <label name="active"/>
     <field name="active"/>
+    <label name="system_generated"/>
+    <field name="system_generated"/>
 </form>

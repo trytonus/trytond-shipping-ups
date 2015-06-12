@@ -317,6 +317,7 @@ class TestUPS(unittest.TestCase):
             'ups_shipper_no': os.environ['UPS_SHIPPER_NO'],
             'ups_is_test': True,
             'ups_uom_system': '01',
+            'currency': self.currency.id,
         }])
 
         self.CarrierConfig.create([{
@@ -580,10 +581,16 @@ class TestUPS(unittest.TestCase):
 
     def test_0025_ups_readonly(self):
         """
-        Test that UPS service name and code fields are not editable.
+        Test that UPS service name and code fields are not editable
+        only if they originate from XML.
         """
+        ModelData = POOL.get('ir.model.data')
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
             self.setup_defaults()
+
+            xml_record = self.UPSService(ModelData.get_id(
+                'shipping_ups', 'shipping_method_01'
+            ))
 
             for argument in [
                     {'name': 'None'},
@@ -591,8 +598,16 @@ class TestUPS(unittest.TestCase):
             ]:
                 self.assertRaises(
                     UserError, self.ups_service.write,
-                    [self.ups_service], argument
+                    [xml_record], argument
                 )
+            self.assertTrue(xml_record.system_generated)
+
+            # Write on a record created manually is successful
+            self.UPSService.write([self.ups_service], {
+                'name': 'Test Service',
+                'code': '5432',
+            })
+            self.assertFalse(self.ups_service.system_generated)
 
     def test_0030_address_validation(self):
         """

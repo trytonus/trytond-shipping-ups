@@ -10,13 +10,19 @@ from decimal import Decimal
 from trytond.model import ModelSQL, ModelView, fields
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
-from trytond.pyson import Eval
+from trytond.pyson import Eval, Bool
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept, ShipmentVoid
 from ups.rating_package import RatingService
 from ups.address_validation import AddressValidation
 
 __all__ = ['Carrier', 'UPSService', 'CarrierConfig']
 __metaclass__ = PoolMeta
+
+SERVICE_STATES = {
+    'readonly': Bool(Eval('system_generated')),
+    'required': True,
+}
+SERVICE_DEPENDS = ['system_generated']
 
 
 class CarrierConfig:
@@ -282,19 +288,37 @@ class UPSService(ModelSQL, ModelView):
     __name__ = 'ups.service'
 
     active = fields.Boolean('Active', select=True)
-    name = fields.Char('Name', required=True, select=True, readonly=True)
+    name = fields.Char(
+        'Name', required=True, select=True,
+        states=SERVICE_STATES, depends=SERVICE_DEPENDS
+    )
     code = fields.Char(
-        'Service Code', required=True, select=True, readonly=True
+        'Service Code', required=True, select=True,
+        states=SERVICE_STATES, depends=SERVICE_DEPENDS
     )
     display_name = fields.Char('Display Name', select=True)
+    system_generated = fields.Function(
+        fields.Boolean('System Generated?'),
+        getter='get_system_generated'
+    )
 
     @staticmethod
     def default_active():
         return True
 
     @staticmethod
-    def check_xml_record(records, values):
-        for key in values:
-            if key not in ['display_name', 'active']:
-                return False
-        return True
+    def default_system_generated():
+        return False
+
+    def get_system_generated(self, name=None):
+        """
+        Getter for system_generated boolean field
+        """
+        ModelData = Pool().get('ir.model.data')
+
+        # If the record originated from XML
+        if ModelData.search([
+            ('db_id', '=', self.id),
+            ('model', '=', 'ups.service'),
+        ], limit=1):
+            return True
