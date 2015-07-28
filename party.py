@@ -2,8 +2,6 @@
 """
     Customizes party address to have address in correct format for UPS API .
 
-    :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
-    :license: BSD, see LICENSE for more details.
 """
 import re
 
