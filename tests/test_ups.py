@@ -335,6 +335,13 @@ class TestUPS(unittest.TestCase):
             'party': self.sale_party.id
         }])
 
+        self.warehouse = self.StockLocation.search([
+            ('type', '=', 'warehouse')
+        ])[0]
+        self.StockLocation.write([self.warehouse], {
+            'address': self.company.party.addresses[0].id,
+        })
+
     def create_sale(self, party):
         """
         Create and confirm sale order for party with default values.
@@ -362,10 +369,6 @@ class TestUPS(unittest.TestCase):
                     }]),
                 ]
             }])
-
-            self.StockLocation.write([sale.warehouse], {
-                'address': self.company.party.addresses[0].id,
-            })
 
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 1)
@@ -471,10 +474,6 @@ class TestUPS(unittest.TestCase):
                     }]),
                 ]
             }])
-
-            self.StockLocation.write([sale.warehouse], {
-                'address': self.company.party.addresses[0].id,
-            })
 
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 2)
@@ -686,9 +685,6 @@ class TestUPS(unittest.TestCase):
                     ]
                 }])
 
-                self.StockLocation.write([sale.warehouse], {
-                    'address': self.company.party.addresses[0].id,
-                })
                 self.assertEqual(len(sale.lines), 1)
 
             with Transaction().set_context(sale=sale):
