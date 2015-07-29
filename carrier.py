@@ -133,9 +133,10 @@ class Carrier:
     @classmethod
     def __setup__(cls):
         super(Carrier, cls).__setup__()
-        selection = ('ups', 'UPS')
-        if selection not in cls.carrier_cost_method.selection:
-            cls.carrier_cost_method.selection.append(selection)
+
+        for selection in [('ups', 'UPS'), ('ups_worldship', 'UPS Worldship')]:
+            if selection not in cls.carrier_cost_method.selection:
+                cls.carrier_cost_method.selection.append(selection)
 
         cls._error_messages.update({
             'ups_credentials_required':

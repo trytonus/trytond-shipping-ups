@@ -10,6 +10,7 @@ from logbook import Logger
 
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept
 from ups.base import PyUPSException
+from ups.worldship_api import WorldShip
 from trytond.model import fields, ModelView
 from trytond.wizard import Wizard, StateView, Button
 from trytond.transaction import Transaction
@@ -101,6 +102,7 @@ class ShipmentOut:
         cls.__rpc__.update({
             'make_ups_labels': RPC(readonly=False, instantiate=0),
             'get_ups_shipping_cost': RPC(readonly=False, instantiate=0),
+            'get_worldship_xml': RPC(instantiate=0, readonly=True),
         })
 
     def _get_ups_packages(self):
@@ -389,6 +391,45 @@ class ShipmentOut:
             self.carrier.carrier_cost_method == 'ups'
 
         return res
+
+    def get_worldship_xml(self):
+        """
+        Return shipment data with worldship understandable xml
+        """
+        if not self.carrier:
+            self.raise_user_error('Carrier is not defined for shipment.')
+        if self.carrier.carrier_cost_method != 'ups_worldship':
+            self.raise_user_error(
+                'Shipment %s is to be shipped with %s, not Worldship.',
+                (self.number, self.carrier.rec_name)
+            )
+
+        description = ','.join([
+            move.product.name for move in self.outgoing_moves
+        ])
+        ship_to = self.delivery_address.to_worldship_to_address()
+        ship_from = self.warehouse.address.to_worldship_from_address()
+        shipment_information = WorldShip.shipment_information_type(
+            ServiceType="",  # Worldease
+            DescriptionOfGoods=description[:50],
+            GoodsNotInFreeCirculation="0",
+            BillTransportationTo="Shipper",
+        )
+        package = WorldShip.package_type(
+            PackageType='CP',  # Custom Package
+            Weight=str(sum(map(
+                lambda move: move.get_weight(self.carrier.ups_weight_uom),
+                self.outgoing_moves
+            ))),
+        )
+        final_xml = WorldShip.get_xml(
+            ship_to, ship_from, shipment_information, package
+        )
+        rv = {
+            'id': self.id,
+            'worldship_xml': final_xml,
+        }
+        return rv
 
 
 class StockMove:
