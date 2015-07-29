@@ -150,11 +150,12 @@ class ShipmentOut:
         description = ','.join([
             move.product.name for move in self.outgoing_moves
         ])
+        from_address = self._get_ship_from_address()
 
         shipment_args = [
-            self.warehouse.address.to_ups_shipper(carrier=carrier),
+            from_address.to_ups_shipper(carrier=carrier),
             self.delivery_address.to_ups_to_address(),
-            self.warehouse.address.to_ups_from_address(),
+            from_address.to_ups_from_address(),
             ShipmentConfirm.service_type(Code=self.ups_service_type.code),
             payment_info, shipment_service,
         ]
@@ -162,7 +163,7 @@ class ShipmentOut:
             shipment_args.append(
                 ShipmentConfirm.rate_information_type(negotiated=True)
             )
-        if self.warehouse.address.country.code == 'US' and \
+        if from_address.country.code == 'US' and \
                 self.delivery_address.country.code in ['PR', 'CA']:
             # Special case for US to PR or CA InvoiceLineTotal should be sent
             monetary_value = str(sum(map(
@@ -408,7 +409,7 @@ class ShipmentOut:
             move.product.name for move in self.outgoing_moves
         ])
         ship_to = self.delivery_address.to_worldship_to_address()
-        ship_from = self.warehouse.address.to_worldship_from_address()
+        ship_from = self._get_ship_from_address().to_worldship_from_address()
         shipment_information = WorldShip.shipment_information_type(
             ServiceType="",  # Worldease
             DescriptionOfGoods=description[:50],
