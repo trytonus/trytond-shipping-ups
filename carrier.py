@@ -29,6 +29,9 @@ class CarrierConfig:
 
     @classmethod
     def get_carrier_methods_for_domain(cls):
+        """
+        UPS can be used for address validation. So add to the list.
+        """
         res = super(CarrierConfig, cls).get_carrier_methods_for_domain()
         if 'ups' not in res:
             res.append('ups')
