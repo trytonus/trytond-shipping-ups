@@ -159,7 +159,9 @@ class Carrier:
         sale = Transaction().context.get('sale')
 
         if sale and self.carrier_cost_method == 'ups':
-            return Sale(sale).get_ups_shipping_rates()
+            sale = Sale(sale)
+            sale.carrier = self
+            return sale.get_ups_shipping_rates()
 
         return super(Carrier, self).get_rates()
 
