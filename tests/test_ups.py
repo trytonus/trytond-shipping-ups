@@ -300,11 +300,6 @@ class TestUPS(unittest.TestCase):
             'name': 'Test Party',
         }])
 
-        # Create party
-        carrier_party, = self.Party.create([{
-            'name': 'Test Party',
-        }])
-
         self.carrier, = self.Carrier.create([{
             'party': carrier_party.id,
             'carrier_product': carrier_product.id,
