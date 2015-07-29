@@ -11,6 +11,7 @@ from decimal import Decimal
 from time import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from lxml import objectify
 
 
 import unittest
@@ -44,6 +45,7 @@ class TestUPS(unittest.TestCase):
         self.Country = POOL.get('country.country')
         self.CountrySubdivision = POOL.get('country.subdivision')
         self.PartyAddress = POOL.get('party.address')
+        self.StockMove = POOL.get('stock.move')
         self.StockLocation = POOL.get('stock.location')
         self.StockShipmentOut = POOL.get('stock.shipment.out')
         self.Currency = POOL.get('currency.currency')
@@ -300,11 +302,6 @@ class TestUPS(unittest.TestCase):
             'name': 'Test Party',
         }])
 
-        # Create party
-        carrier_party, = self.Party.create([{
-            'name': 'Test Party',
-        }])
-
         self.carrier, = self.Carrier.create([{
             'party': carrier_party.id,
             'carrier_product': carrier_product.id,
@@ -315,6 +312,12 @@ class TestUPS(unittest.TestCase):
             'ups_shipper_no': os.environ['UPS_SHIPPER_NO'],
             'ups_is_test': True,
             'ups_uom_system': '01',
+            'currency': self.currency.id,
+        }])
+        self.ups_worldship_carrier, = self.Carrier.create([{
+            'party': carrier_party.id,
+            'carrier_product': carrier_product.id,
+            'carrier_cost_method': 'ups_worldship',
             'currency': self.currency.id,
         }])
 
@@ -339,6 +342,13 @@ class TestUPS(unittest.TestCase):
             'value': '8005763279',
             'party': self.sale_party.id
         }])
+
+        self.warehouse = self.StockLocation.search([
+            ('type', '=', 'warehouse')
+        ])[0]
+        self.StockLocation.write([self.warehouse], {
+            'address': self.company.party.addresses[0].id,
+        })
 
     def create_sale(self, party):
         """
@@ -367,10 +377,6 @@ class TestUPS(unittest.TestCase):
                     }]),
                 ]
             }])
-
-            self.StockLocation.write([sale.warehouse], {
-                'address': self.company.party.addresses[0].id,
-            })
 
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 1)
@@ -476,10 +482,6 @@ class TestUPS(unittest.TestCase):
                     }]),
                 ]
             }])
-
-            self.StockLocation.write([sale.warehouse], {
-                'address': self.company.party.addresses[0].id,
-            })
 
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 2)
@@ -691,13 +693,55 @@ class TestUPS(unittest.TestCase):
                     ]
                 }])
 
-                self.StockLocation.write([sale.warehouse], {
-                    'address': self.company.party.addresses[0].id,
-                })
                 self.assertEqual(len(sale.lines), 1)
 
             with Transaction().set_context(sale=sale):
                 self.assertGreater(self.carrier.get_rates(), 0)
+
+    def test_0040_test_worldship_xml(self):
+        """
+        Test the worldship cml generation
+        """
+        Date = POOL.get('ir.date')
+
+        with Transaction().start(DB_NAME, USER, context=CONTEXT):
+            self.setup_defaults()
+            uom_kg, = self.Uom.search([('symbol', '=', 'kg')])
+
+            with Transaction().set_context({'company': self.company.id}):
+                shipment, = self.StockShipmentOut.create([{
+                    'planned_date': Date.today(),
+                    'effective_date': Date.today(),
+                    'customer': self.sale_party.id,
+                    'carrier': self.ups_worldship_carrier.id,
+                    'cost_currency': self.ups_worldship_carrier.currency.id,
+                    'warehouse': self.warehouse.id,
+                    'delivery_address': self.sale_party.addresses[0],
+                }])
+                move1, = self.StockMove.create([{
+                    'shipment': ('stock.shipment.out', shipment.id),
+                    'product': self.product.id,
+                    'uom': uom_kg.id,
+                    'quantity': 6,
+                    'from_location': shipment.warehouse.output_location.id,
+                    'to_location': shipment.customer_location.id,
+                    'unit_price': Decimal('1'),
+                    'currency': self.currency.id,
+                }])
+                move2, = self.StockMove.create([{
+                    'shipment': ('stock.shipment.out', shipment.id),
+                    'product': self.product.id,
+                    'uom': uom_kg.id,
+                    'quantity': 4,
+                    'from_location': shipment.warehouse.output_location.id,
+                    'to_location': shipment.customer_location.id,
+                    'unit_price': Decimal('1'),
+                    'currency': self.currency.id,
+                }])
+
+                rv = shipment.get_worldship_xml()
+                self.assertTrue('worldship_xml' in rv)
+                assert objectify.fromstring(rv['worldship_xml'])
 
 
 def suite():
