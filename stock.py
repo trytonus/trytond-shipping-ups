@@ -422,15 +422,15 @@ class ShipmentOut:
             GoodsNotInFreeCirculation="0",
             BillTransportationTo="Shipper",
         )
-        package = WorldShip.package_type(
-            PackageType='CP',  # Custom Package
-            Weight=str(sum(map(
-                lambda move: move.get_weight(self.carrier.ups_weight_uom),
-                self.outgoing_moves
-            ))),
-        )
+        xml_packages = []
+        for package in self.packages:
+            xml_packages.append(WorldShip.package_type(
+                PackageID=str(package.id),
+                PackageType='CP',  # Custom Package
+                Weight="%.2f" % package.weight,
+            ))
         final_xml = WorldShip.get_xml(
-            ship_to, ship_from, shipment_information, package
+            ship_to, ship_from, shipment_information, *xml_packages
         )
         rv = {
             'id': self.id,
