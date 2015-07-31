@@ -385,6 +385,24 @@ class TestUPS(unittest.TestCase):
             self.Sale.confirm([sale])
             self.Sale.process([sale])
 
+    def test_0005_is_ups_shipping(self):
+        """Test function fields is_ups_shipping
+        """
+        with Transaction().start(DB_NAME, USER, context=CONTEXT):
+            # Call method to create sale order
+            self.setup_defaults()
+            self.create_sale(self.sale_party)
+
+            shipment, = self.StockShipmentOut.search([])
+            self.assertTrue(shipment.is_ups_shipping)
+            self.assertFalse(shipment.is_ups_worldship_shipping)
+
+            # Change carrier to ups_worldship
+            self.carrier.carrier_cost_method = 'ups_worldship'
+            self.carrier.save()
+            self.assertTrue(shipment.is_ups_worldship_shipping)
+            self.assertFalse(shipment.is_ups_shipping)
+
     def test_0010_generate_ups_labels(self):
         """Test case to generate UPS labels.
         """
