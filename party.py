@@ -356,7 +356,8 @@ class Address:
             'CountryTerritory': self.country and self.country.code,
             'PostalCode': self.zip or '',
             'CityOrTown': self.city or '',
-            'StateProvinceCounty': self.subdivision and self.subdivision.code,
+            'StateProvinceCounty':
+                self.subdivision and self.subdivision.code[3:],
             'Telephone': digits_only_re.sub('', self.party.phone),
         }
         return vals

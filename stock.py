@@ -411,7 +411,7 @@ class ShipmentOut:
         ship_to = self.delivery_address.to_worldship_to_address()
         ship_from = self._get_ship_from_address().to_worldship_from_address()
         shipment_information = WorldShip.shipment_information_type(
-            ServiceType="",  # Worldease
+            ServiceType="Standard",  # Worldease
             DescriptionOfGoods=description[:50],
             GoodsNotInFreeCirculation="0",
             BillTransportationTo="Shipper",
