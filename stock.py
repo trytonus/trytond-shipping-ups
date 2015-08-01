@@ -37,7 +37,11 @@ class ShipmentOut:
     __name__ = 'stock.shipment.out'
 
     is_ups_shipping = fields.Function(
-        fields.Boolean('Is Shipping', readonly=True),
+        fields.Boolean('Is UPS Shipping ?'),
+        'get_is_ups_shipping'
+    )
+    is_ups_worldship_shipping = fields.Function(
+        fields.Boolean('Is UPS Worldship Shipping ?'),
         'get_is_ups_shipping'
     )
     ups_service_type = fields.Many2One(
@@ -80,7 +84,7 @@ class ShipmentOut:
         """
         Check if shipping is from UPS
         """
-        return self.carrier and self.carrier.carrier_cost_method == 'ups'
+        return self.carrier and self.carrier.carrier_cost_method == name[3:-9]
 
     @classmethod
     def __setup__(cls):
@@ -390,6 +394,8 @@ class ShipmentOut:
 
         res['is_ups_shipping'] = self.carrier and \
             self.carrier.carrier_cost_method == 'ups'
+        res['is_ups_worldship_shipping'] = self.carrier and \
+            self.carrier.carrier_cost_method == 'ups_worldship'
 
         return res
 
@@ -416,15 +422,15 @@ class ShipmentOut:
             GoodsNotInFreeCirculation="0",
             BillTransportationTo="Shipper",
         )
-        package = WorldShip.package_type(
-            PackageType='CP',  # Custom Package
-            Weight=str(sum(map(
-                lambda move: move.get_weight(self.carrier.ups_weight_uom),
-                self.outgoing_moves
-            ))),
-        )
+        xml_packages = []
+        for package in self.packages:
+            xml_packages.append(WorldShip.package_type(
+                PackageID=str(package.id),
+                PackageType='CP',  # Custom Package
+                Weight="%.2f" % package.weight,
+            ))
         final_xml = WorldShip.get_xml(
-            ship_to, ship_from, shipment_information, package
+            ship_to, ship_from, shipment_information, *xml_packages
         )
         rv = {
             'id': self.id,
