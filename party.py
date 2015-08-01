@@ -10,6 +10,7 @@ from orderedset import OrderedSet
 from lxml import etree
 from logbook import Logger
 
+from ups.worldship_api import WorldShip
 from ups.shipping_package import ShipmentConfirm
 from ups.base import PyUPSException
 from trytond.pool import Pool, PoolMeta
@@ -330,3 +331,47 @@ class Address:
             )
 
         return matches
+
+    def to_worldship_address(self):
+        """
+        Return the dict for worldship address xml
+        """
+        Company = Pool().get('company.company')
+
+        vals = {}
+
+        company_id = Transaction().context.get('company')
+        if not company_id:
+            self.raise_user_error(
+                "ups_field_missing",
+                error_args=('Company', 'context')
+            )
+        company_party = Company(company_id).party
+
+        vals = {
+            'CompanyOrName': company_party.name,
+            'Attention': self.name or self.party.name,
+            'Address1': self.street or '',
+            'Address2': self.streetbis or '',
+            'CountryTerritory': self.country and self.country.code,
+            'PostalCode': self.zip or '',
+            'CityOrTown': self.city or '',
+            'StateProvinceCounty':
+                self.subdivision and self.subdivision.code[3:],
+            'Telephone': digits_only_re.sub('', self.party.phone),
+        }
+        return vals
+
+    def to_worldship_to_address(self):
+        """
+        Return xml object of to address
+        """
+        values = self.to_worldship_address()
+        return WorldShip.ship_to_type(**values)
+
+    def to_worldship_from_address(self):
+        """
+        Return xml object from address
+        """
+        values = self.to_worldship_address()
+        return WorldShip.ship_from_type(**values)
