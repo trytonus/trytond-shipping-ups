@@ -213,12 +213,6 @@ class Sale:
         )
         return [package_container]
 
-    def _get_ship_from_address(self):
-        """
-        Usually the warehouse from which you ship
-        """
-        return self.warehouse.address
-
     def _get_rate_request_xml(self, mode='rate'):
         """
         Return the E builder object with the rate fetching request
@@ -236,10 +230,12 @@ class Sale:
 
         shipment_args = self._get_ups_packages()
 
+        from_address = self._get_ship_from_address()
+
         shipment_args.extend([
-            self.warehouse.address.to_ups_shipper(carrier=carrier),  # Shipper
+            from_address.to_ups_shipper(carrier=carrier),  # Shipper
             self.shipment_address.to_ups_to_address(),      # Ship to
-            self._get_ship_from_address().to_ups_from_address(),   # Ship from
+            from_address.to_ups_from_address(),   # Ship from
 
         ])
 
