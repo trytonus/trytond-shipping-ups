@@ -390,7 +390,8 @@ class ShipmentOut:
         """
         Show/Hide UPS Tab in view on change of carrier
         """
-        res = super(ShipmentOut, self).on_change_carrier()
+        with Transaction().set_context(ignore_carrier_computation=True):
+            res = super(ShipmentOut, self).on_change_carrier()
 
         res['is_ups_shipping'] = self.carrier and \
             self.carrier.carrier_cost_method == 'ups'
