@@ -191,8 +191,7 @@ class ShipmentOut:
         )
         return shipment_confirm
 
-    @classmethod
-    def _get_ups_shipment_cost(cls, shipment_confirm, carrier):
+    def _get_ups_shipment_cost(self, shipment_confirm):
         """
         The shipment_confirm is an xml container in the response which has the
         standard rates and negotiated rates. This method should extract the
@@ -208,7 +207,7 @@ class ShipmentOut:
             ))
         ])
 
-        if carrier.ups_negotiated_rates and \
+        if self.carrier.ups_negotiated_rates and \
                 hasattr(shipment_confirm, 'NegotiatedRates'):
             # If there are negotiated rates return that instead
             charges = shipment_confirm.NegotiatedRates.NetSummaryCharges
@@ -255,8 +254,7 @@ class ShipmentOut:
         except PyUPSException, e:
             self.raise_user_error(unicode(e[0]))
 
-        shipping_cost, currency = self._get_ups_shipment_cost(
-            response, carrier=carrier)
+        shipping_cost, currency = self._get_ups_shipment_cost(response)
 
         return shipping_cost, currency.id
 
