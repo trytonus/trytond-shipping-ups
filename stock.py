@@ -407,7 +407,7 @@ class ShipmentOut:
         if self.carrier.carrier_cost_method != 'ups_worldship':
             self.raise_user_error(
                 'Shipment %s is to be shipped with %s, not Worldship.',
-                (self.number, self.carrier.rec_name)
+                (self.reference, self.carrier.rec_name)
             )
 
         description = ','.join([
