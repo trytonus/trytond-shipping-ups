@@ -214,15 +214,15 @@ class Address:
         """
         Subdivision = Pool().get('country.subdivision')
         Address = Pool().get('party.address')
-        CarrierConfig = Pool().get('carrier.configuration')
+        PartyConfig = Pool().get('party.configuration')
 
-        config = CarrierConfig(1)
+        config = PartyConfig(1)
         carrier = config.default_validation_carrier
 
         if not carrier:
             # TODO: Make this translatable error message
             self.raise_user_error(
-                "Validation Carrier is not selected in carrier configuration."
+                "Validation Carrier is not selected in party configuration."
             )
 
         api_instance = carrier.ups_api_instance(call='address_val')

@@ -13,7 +13,7 @@ from ups.shipping_package import ShipmentConfirm, ShipmentAccept, ShipmentVoid
 from ups.rating_package import RatingService
 from ups.address_validation import AddressValidation
 
-__all__ = ['Carrier', 'UPSService', 'CarrierConfig']
+__all__ = ['Carrier', 'UPSService']
 __metaclass__ = PoolMeta
 
 SERVICE_STATES = {
@@ -21,21 +21,6 @@ SERVICE_STATES = {
     'required': True,
 }
 SERVICE_DEPENDS = ['system_generated']
-
-
-class CarrierConfig:
-    "Carrier Configuration"
-    __name__ = 'carrier.configuration'
-
-    @classmethod
-    def get_carrier_methods_for_domain(cls):
-        """
-        UPS can be used for address validation. So add to the list.
-        """
-        res = super(CarrierConfig, cls).get_carrier_methods_for_domain()
-        if 'ups' not in res:
-            res.append('ups')
-        return res
 
 
 class Carrier:
