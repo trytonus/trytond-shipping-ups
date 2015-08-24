@@ -721,6 +721,8 @@ class TestUPS(unittest.TestCase):
         Test the worldship cml generation
         """
         Date = POOL.get('ir.date')
+        StockPackage = POOL.get('stock.package')
+        StockPackageType = POOL.get('stock.package.type')
 
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
             self.setup_defaults()
@@ -756,6 +758,18 @@ class TestUPS(unittest.TestCase):
                     'unit_price': Decimal('1'),
                     'currency': self.currency.id,
                 }])
+                stock_package_type, = StockPackageType.search([])
+                package1, package2 = StockPackage.create([{
+                    'type': stock_package_type.id,
+                    'shipment': "%s,%s" % (shipment.__name__, shipment.id),
+                }, {
+                    'type': stock_package_type.id,
+                    'shipment': "%s,%s" % (shipment.__name__, shipment.id),
+                }])
+                package1.moves = [move1]
+                package1.save()
+                package2.moves = [move2]
+                package2.save()
 
                 rv = shipment.get_worldship_xml()
                 self.assertTrue('worldship_xml' in rv)
