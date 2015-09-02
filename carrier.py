@@ -119,6 +119,13 @@ class Carrier:
     )
 
     @classmethod
+    def view_attributes(cls):
+        return super(Carrier, cls).view_attributes() + [
+            ('//group[@id="ups_configuration"]', 'states', {
+                'invisible':  Eval('carrier_cost_method') != 'ups'
+            })]
+
+    @classmethod
     def __setup__(cls):
         super(Carrier, cls).__setup__()
 

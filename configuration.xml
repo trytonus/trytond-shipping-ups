@@ -23,7 +23,7 @@
         <record model="ir.action.act_window" id="act_ups_service_form">
             <field name="name">UPS Services</field>
             <field name="res_model">ups.service</field>
-            <field name="context">{'active_test': False}</field>
+            <field name="context" eval="{'active_test': False}" pyson="1"/>
         </record>
         <record model="ir.action.act_window.view" id="act_ups_service_view1">
             <field name="sequence" eval="10"/>
@@ -38,13 +38,13 @@
         <record model="ir.action.act_window.domain" id="act_ups_service_active">
             <field name="name">Active</field>
             <field name="sequence" eval="10"/>
-            <field name="domain">[('active', '=', True)]</field>
+            <field name="domain" eval="[('active', '=', True)]" pyson="1"/>
             <field name="act_window" ref="act_ups_service_form"/>
         </record>
         <record model="ir.action.act_window.domain" id="act_ups_service_disabled">
             <field name="name">Disabled</field>
             <field name="sequence" eval="20"/>
-            <field name="domain">[('active', '=', False)]</field>
+            <field name="domain" eval="[('active', '=', False)]" pyson="1"/>
             <field name="act_window" ref="act_ups_service_form"/>
         </record>
         <menuitem parent="stock.menu_configuration" id="menu_ups_service"
