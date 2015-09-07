@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <data>
     <xpath expr="/form/notebook/page[@id=&quot;outgoing_moves&quot;]" position="after">
-        <page string="UPS" states="{'invisible': Not(Bool(Eval('is_ups_shipping')))}" id="ups">
+        <page string="UPS" id="ups">
             <label name="is_ups_shipping"/>
             <field name="is_ups_shipping"/>
             <label name="ups_service_type"/>

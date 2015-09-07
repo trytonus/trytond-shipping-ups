@@ -15,7 +15,7 @@ from trytond.model import fields, ModelView
 from trytond.wizard import Wizard, StateView, Button
 from trytond.transaction import Transaction
 from trytond.pool import Pool, PoolMeta
-from trytond.pyson import Eval
+from trytond.pyson import Eval, Bool
 from trytond.rpc import RPC
 
 from .sale import UPS_PACKAGE_TYPES
@@ -54,6 +54,13 @@ class ShipmentOut:
     ups_saturday_delivery = fields.Boolean(
         "Is Saturday Delivery", states=STATES, depends=['state']
     )
+
+    @classmethod
+    def view_attributes(cls):
+        return super(ShipmentOut, cls).view_attributes() + [
+            ('//page[@id="ups"]', 'states', {
+                'invisible':  ~Bool(Eval('is_ups_shipping'))
+            })]
 
     def _get_weight_uom(self):
         """
@@ -383,20 +390,18 @@ class ShipmentOut:
             }])
         return shipment_identification_number
 
-    @fields.depends('ups_service_type')
+    @fields.depends('ups_service_type', 'carrier', 'is_ups_worldship_shipping')
     def on_change_carrier(self):
         """
         Show/Hide UPS Tab in view on change of carrier
         """
         with Transaction().set_context(ignore_carrier_computation=True):
-            res = super(ShipmentOut, self).on_change_carrier()
+            super(ShipmentOut, self).on_change_carrier()
 
-        res['is_ups_shipping'] = self.carrier and \
-            self.carrier.carrier_cost_method == 'ups'
-        res['is_ups_worldship_shipping'] = self.carrier and \
-            self.carrier.carrier_cost_method == 'ups_worldship'
-
-        return res
+        self.is_ups_shipping = self.carrier and \
+            self.carrier.carrier_cost_method == 'ups' or None
+        self.is_ups_worldship_shipping = self.carrier and \
+            self.carrier.carrier_cost_method == 'ups_worldship' or None
 
     def get_worldship_xml(self):
         """

@@ -13,7 +13,7 @@ from ups.base import PyUPSException
 from trytond.model import ModelView, fields
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
-from trytond.pyson import Eval
+from trytond.pyson import Eval, Bool
 
 __all__ = ['Configuration', 'Sale']
 __metaclass__ = PoolMeta
@@ -68,6 +68,13 @@ class Sale:
         UPS_PACKAGE_TYPES, 'Package Content Type'
     )
     ups_saturday_delivery = fields.Boolean("Is Saturday Delivery")
+
+    @classmethod
+    def view_attributes(cls):
+        return super(Sale, cls).view_attributes() + [
+            ('//page[@id="ups"]', 'states', {
+                'invisible':  ~Bool(Eval('is_ups_shipping'))
+            })]
 
     def _get_weight_uom(self):
         """
@@ -434,13 +441,10 @@ class Sale:
             for rated_shipment in response.iterchildren(tag='RatedShipment')
         ])
 
+    @fields.depends('is_ups_shipping', 'carrier')
     def on_change_carrier(self):
         """
         Show/Hide UPS Tab in view on change of carrier
         """
-        res = super(Sale, self).on_change_carrier()
-
-        res['is_ups_shipping'] = self.carrier and \
-            self.carrier.carrier_cost_method == 'ups'
-
-        return res
+        self.is_ups_shipping = self.carrier and \
+            self.carrier.carrier_cost_method == 'ups' or None
