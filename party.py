@@ -367,6 +367,7 @@ class Address:
         Return xml object of to address
         """
         values = self.to_worldship_address()
+        values['CompanyOrName'] = self.name or self.party.name
         return WorldShip.ship_to_type(**values)
 
     def to_worldship_from_address(self):
