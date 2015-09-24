@@ -6,6 +6,7 @@
 from decimal import Decimal
 import base64
 from lxml import etree
+from lxml.builder import E
 from logbook import Logger
 
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept
@@ -398,6 +399,34 @@ class ShipmentOut:
 
         return res
 
+    def get_worldship_goods(self):
+        """
+        For all items in the shipment, this expects a manifest of Goods
+        """
+        goods = []
+        for move in self.outgoing_moves:
+            if not move.quantity:
+                continue
+            values = [
+                E.PartNumber(move.product.code),
+                E.DescriptionOfGood(move.product.name),
+                E.InvoiceUnits(str(move.quantity)),
+                E.InvoiceUnitOfMeasure(move.uom.symbol),
+                E(
+                    'Invoice-SED-UnitPrice',
+                    str(move.unit_price.quantize(Decimal('0.1')))
+                )
+            ]
+            if move.product.country_of_origin:
+                values.append(
+                    E(
+                        'Inv-NAFTA-CO-CountryTerritoryOfOrigin',
+                        move.product.country_of_origin.code
+                    )
+                )
+            goods.append(E.Goods(*values))
+        return goods
+
     def get_worldship_xml(self):
         """
         Return shipment data with worldship understandable xml
@@ -429,7 +458,8 @@ class ShipmentOut:
                 Weight="%.2f" % package.weight,
             ))
         final_xml = WorldShip.get_xml(
-            ship_to, ship_from, shipment_information, *xml_packages
+            ship_to, ship_from, shipment_information,
+            *(xml_packages + self.get_worldship_goods())
         )
         rv = {
             'id': self.id,
