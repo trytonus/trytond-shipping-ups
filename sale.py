@@ -116,17 +116,6 @@ class Sale:
         """
         return self.carrier and self.carrier.carrier_cost_method == 'ups'
 
-    def _get_carrier_context(self):
-        "Pass sale in the context"
-        context = super(Sale, self)._get_carrier_context()
-
-        if not self.carrier.carrier_cost_method == 'ups':
-            return context
-
-        context = context.copy()
-        context['sale'] = self.id
-        return context
-
     def apply_ups_shipping(self):
         "Add a shipping line to sale for ups"
         Currency = Pool().get('currency.currency')
