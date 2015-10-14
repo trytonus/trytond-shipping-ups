@@ -13,7 +13,7 @@ from ups.shipping_package import ShipmentConfirm, ShipmentAccept, ShipmentVoid
 from ups.rating_package import RatingService
 from ups.address_validation import AddressValidation
 
-__all__ = ['Carrier', 'UPSService']
+__all__ = ['Carrier', 'CarrierService']
 __metaclass__ = PoolMeta
 
 SERVICE_STATES = {
@@ -272,28 +272,32 @@ class Carrier:
             )
 
 
-class UPSService(ModelSQL, ModelView):
-    "UPS Service"
-    __name__ = 'ups.service'
+class CarrierService(ModelSQL, ModelView):
+    "Carrier Service"
+    __name__ = 'carrier.service'
 
-    active = fields.Boolean('Active', select=True)
-    name = fields.Char(
-        'Name', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    code = fields.Char(
-        'Service Code', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    display_name = fields.Char('Display Name', select=True)
     system_generated = fields.Function(
         fields.Boolean('System Generated?'),
         getter='get_system_generated'
     )
 
-    @staticmethod
-    def default_active():
-        return True
+    def on_change_with_is_method_type_required(self, name=None):
+        if self.source == 'ups':
+            return False
+        return super(
+            CarrierService, self
+        ).on_change_with_is_method_type_required()
+
+    @classmethod
+    def get_source(cls):
+        """
+        Get the source
+        """
+        sources = super(CarrierService, cls).get_source()
+
+        sources.append(('ups', 'UPS'))
+
+        return sources
 
     @staticmethod
     def default_system_generated():
@@ -308,6 +312,6 @@ class UPSService(ModelSQL, ModelView):
         # If the record originated from XML
         if ModelData.search([
             ('db_id', '=', self.id),
-            ('model', '=', 'ups.service'),
+            ('model', '=', 'carrier.service'),
         ], limit=1):
             return True
