@@ -32,7 +32,7 @@ class TestUPS(unittest.TestCase):
         self.Address = POOL.get('party.address')
         self.Sale = POOL.get('sale.sale')
         self.SaleConfig = POOL.get('sale.configuration')
-        self.UPSService = POOL.get('ups.service')
+        self.CarrierService = POOL.get('carrier.service')
         self.Product = POOL.get('product.product')
         self.Uom = POOL.get('product.uom')
         self.Account = POOL.get('account.account')
@@ -213,14 +213,16 @@ class TestUPS(unittest.TestCase):
                 }])]
             }])
 
-        self.ups_service, = self.UPSService.create([{
+        self.ups_service, = self.CarrierService.create([{
             'name': 'Next Day Air',
-            'code': '01',
+            'value': '01',
+            'source': 'ups',
         }])
 
-        self.ups_service2, = self.UPSService.create([{
+        self.ups_service2, = self.CarrierService.create([{
             'name': 'Second Next Day Air',
-            'code': '02',
+            'value': '02',
+            'source': 'ups'
         }])
 
         self.SaleConfig.create([{
@@ -606,13 +608,13 @@ class TestUPS(unittest.TestCase):
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
             self.setup_defaults()
 
-            xml_record = self.UPSService(ModelData.get_id(
-                'shipping_ups', 'shipping_method_01'
+            xml_record = self.CarrierService(ModelData.get_id(
+                'shipping_ups', 'shipping_method_001'
             ))
 
             for argument in [
                     {'name': 'None'},
-                    {'code': '1234'}
+                    {'value': '1234'}
             ]:
                 self.assertRaises(
                     UserError, self.ups_service.write,
@@ -621,9 +623,9 @@ class TestUPS(unittest.TestCase):
             self.assertTrue(xml_record.system_generated)
 
             # Write on a record created manually is successful
-            self.UPSService.write([self.ups_service], {
+            self.CarrierService.write([self.ups_service], {
                 'name': 'Test Service',
-                'code': '5432',
+                'value': '5432',
             })
             self.assertFalse(self.ups_service.system_generated)
 

@@ -41,7 +41,8 @@ class Configuration:
     __name__ = 'sale.configuration'
 
     ups_service_type = fields.Many2One(
-        'ups.service', 'Default UPS Service Type',
+        'carrier.service', 'Default UPS Service Type',
+        domain=[('source', '=', 'ups')]
     )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
@@ -62,7 +63,7 @@ class Sale:
         'get_is_ups_shipping'
     )
     ups_service_type = fields.Many2One(
-        'ups.service', 'UPS Service Type',
+        'carrier.service', 'UPS Service Type', domain=[('source', '=', 'ups')]
     )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
@@ -236,7 +237,7 @@ class Sale:
         if mode == 'rate':
             # TODO: handle ups_saturday_delivery
             shipment_args.append(
-                RatingService.service_type(Code=self.ups_service_type.code)
+                RatingService.service_type(Code=self.ups_service_type.value)
             )
             request_option = E.RequestOption('Rate')
         else:
@@ -317,17 +318,18 @@ class Sale:
         )
         return shipment_cost, currency.id
 
-    def _ups_service_from_code(self, code):
+    def _ups_service_from_value(self, value):
         """
-        Returns ups_service instance if code is allowed for this sale
+        Returns ups_service instance if value is allowed for this sale
 
         Downstream module can decide the eligibility of ups service for sale
         """
-        UPSService = Pool().get('ups.service')
+        CarrierService = Pool().get('carrier.service')
 
         try:
-            service, = UPSService.search([
-                ('code', '=', code)
+            service, = CarrierService.search([
+                ('value', '=', value),
+                ('source', '=', 'ups')
             ])
         except ValueError:
             return None
@@ -338,7 +340,7 @@ class Sale:
         Build a rate line from the rated shipment
         """
         # First identify the service
-        service = self._ups_service_from_code(
+        service = self._ups_service_from_value(
             str(rated_shipment.Service.Code.text)
         )
         if not service:

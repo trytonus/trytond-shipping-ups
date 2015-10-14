@@ -46,7 +46,8 @@ class ShipmentOut:
         'get_is_ups_shipping'
     )
     ups_service_type = fields.Many2One(
-        'ups.service', 'UPS Service Type', states=STATES, depends=['state']
+        'carrier.service', 'UPS Service Type', states=STATES, depends=['state'],
+        domain=[('source', '=', 'ups')]
     )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type', states=STATES,
@@ -161,7 +162,7 @@ class ShipmentOut:
             from_address.to_ups_shipper(carrier=carrier),
             self.delivery_address.to_ups_to_address(),
             from_address.to_ups_from_address(),
-            ShipmentConfirm.service_type(Code=self.ups_service_type.code),
+            ShipmentConfirm.service_type(Code=self.ups_service_type.value),
             payment_info, shipment_service,
         ]
         if carrier.ups_negotiated_rates:
@@ -496,7 +497,7 @@ class ShippingUps(ModelView):
     'Generate Labels'
     __name__ = 'shipping.label.ups'
 
-    ups_service_type = fields.Many2One('ups.service', 'UPS Service Type')
+    ups_service_type = fields.Many2One('carrier.service', 'UPS Service Type')
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
     )
