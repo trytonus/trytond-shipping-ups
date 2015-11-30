@@ -115,7 +115,7 @@ class Sale:
         of ups carrier not to calculate cost on each line change
         """
         with Transaction().set_context({'ignore_carrier_computation': True}):
-            return super(Sale, self).on_change_lines()
+            super(Sale, self).on_change_lines()
 
     def get_is_ups_shipping(self, name):
         """
