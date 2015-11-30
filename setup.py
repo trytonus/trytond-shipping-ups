@@ -82,7 +82,8 @@ requires = [
 ]
 
 MODULE2PREFIX = {
-    'shipping': 'fio'
+    'shipping': 'fio',
+    'customs_value': 'fio',
 }
 
 MODULE = "shipping_ups"
