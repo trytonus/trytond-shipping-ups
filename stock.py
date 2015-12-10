@@ -273,7 +273,6 @@ class ShipmentOut:
         :return: Tracking number as string
         """
         Attachment = Pool().get('ir.attachment')
-        Currency = Pool().get('currency.currency')
 
         carrier = self.carrier
         if self.state not in ('packed', 'done'):
@@ -349,15 +348,8 @@ class ShipmentOut:
         shipment_identification_number = \
             shipment_res.ShipmentIdentificationNumber.pyval
 
-        currency, = Currency.search([
-            ('code', '=', str(
-                shipment_res.ShipmentCharges.TotalCharges.CurrencyCode
-            ))
-        ])
+        shipping_cost, currency = self._get_ups_shipment_cost(shipment_res)
 
-        shipping_cost = currency.round(Decimal(
-            str(shipment_res.ShipmentCharges.TotalCharges.MonetaryValue)
-        ))
         self.__class__.write([self], {
             'cost': shipping_cost,
             'cost_currency': currency,
