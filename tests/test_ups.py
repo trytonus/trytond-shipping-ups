@@ -296,6 +296,8 @@ class TestUPS(unittest.TestCase):
         }])
 
         self.product = template.products[0]
+        self.product.code = 'TEST_PRODUCT'
+        self.product.save()
 
         # Create party
         carrier_party, = self.Party.create([{
