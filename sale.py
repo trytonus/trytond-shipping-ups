@@ -435,5 +435,7 @@ class Sale:
         """
         Show/Hide UPS Tab in view on change of carrier
         """
+        super(Sale, self).on_change_carrier()
+
         self.is_ups_shipping = self.carrier and \
             self.carrier.carrier_cost_method == 'ups' or None

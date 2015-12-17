@@ -292,7 +292,9 @@ class TestUPS(unittest.TestCase):
             'account_revenue': account_revenue.id,
             'weight': .5,
             'weight_uom': uom_pound.id,
-            'products': [('create', self.Template.default_products())]
+            'products': [('create', [{
+                'code': 'PRODUCT'
+            }])]
         }])
 
         self.product = template.products[0]
