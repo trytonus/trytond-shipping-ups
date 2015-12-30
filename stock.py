@@ -266,6 +266,7 @@ class ShipmentOut:
         :return: Tracking number as string
         """
         Attachment = Pool().get('ir.attachment')
+        Tracking = Pool().get('shipment.tracking')
 
         carrier = self.carrier
         if self.state not in ('packed', 'done'):
@@ -346,20 +347,26 @@ class ShipmentOut:
         self.__class__.write([self], {
             'cost': shipping_cost,
             'cost_currency': currency,
-            'tracking_number': shipment_identification_number
         })
 
         index = 0
+        tracking_values = []
         for package in response.ShipmentResults.PackageResults:
-            tracking_number = package.TrackingNumber.pyval
+            tracking_number = unicode(package.TrackingNumber.pyval)
 
             # The package results do not hold any info to identify which
-            # result if for what package, instead it returns the results
+            # result is for what package, instead it returns the results
             # in the order in which the packages were sent in request, so
             # we read the result in the same order.
             stock_package = self.packages[index]
-            stock_package.tracking_number = unicode(tracking_number)
-            stock_package.save()
+            tracking_values.append({
+                'carrier': self.carrier,
+                'tracking_number': tracking_number,
+                'origin': '%s,%d' % (
+                    stock_package.__name__, stock_package.id
+                ),
+                'is_master': tracking_number == shipment_identification_number,
+            })
 
             index += 1
 
@@ -374,6 +381,9 @@ class ShipmentOut:
                 )),
                 'resource': '%s,%s' % (self.__name__, self.id)
             }])
+
+        Tracking.create(tracking_values)
+
         return shipment_identification_number
 
     @fields.depends('ups_service_type')
