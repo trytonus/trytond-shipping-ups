@@ -384,7 +384,7 @@ class ShipmentOut:
 
         Tracking.create(tracking_values)
 
-        return shipment_identification_number
+        return self.tracking_number
 
     @fields.depends('ups_service_type')
     def on_change_carrier(self):
