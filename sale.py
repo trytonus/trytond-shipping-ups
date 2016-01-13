@@ -40,9 +40,6 @@ class Configuration:
     'Sale Configuration'
     __name__ = 'sale.configuration'
 
-    ups_service_type = fields.Many2One(
-        'ups.service', 'Default UPS Service Type',
-    )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
     )
@@ -60,9 +57,6 @@ class Sale:
     is_ups_shipping = fields.Function(
         fields.Boolean('Is Shipping', readonly=True),
         'get_is_ups_shipping'
-    )
-    ups_service_type = fields.Many2One(
-        'ups.service', 'UPS Service Type',
     )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
@@ -92,12 +86,6 @@ class Sale:
         Config = Pool().get('sale.configuration')
         config = Config(1)
         return config.ups_package_type
-
-    @staticmethod
-    def default_ups_service_type():
-        Config = Pool().get('sale.configuration')
-        config = Config(1)
-        return config.ups_service_type and config.ups_service_type.id or None
 
     @staticmethod
     def default_ups_saturday_delivery():
@@ -132,7 +120,7 @@ class Sale:
             self.add_shipping_line(
                 shipment_cost,
                 "%s - %s" % (
-                    self.carrier.party.name, self.ups_service_type.name
+                    self.carrier.party.name, self.carrier_service.name
                 )
             )
 
@@ -159,7 +147,7 @@ class Sale:
 
         shipments = list(self.shipments)
         Shipment.write(shipments, {
-            'ups_service_type': self.ups_service_type.id,
+            'carrier_service': self.carrier_service.id,
             'ups_package_type': self.ups_package_type,
             'ups_saturday_delivery': self.ups_saturday_delivery,
         })
@@ -214,8 +202,8 @@ class Sale:
 
         assert mode in ('rate', 'shop'), "Mode should be 'rate' or 'shop'"
 
-        if mode == 'rate' and not self.ups_service_type:
-            self.raise_user_error('ups_service_type_missing')
+        if mode == 'rate' and not self.carrier_service:
+            self.raise_user_error('carrier_service_missing')
 
         shipment_args = self._get_ups_packages()
 
@@ -236,7 +224,7 @@ class Sale:
         if mode == 'rate':
             # TODO: handle ups_saturday_delivery
             shipment_args.append(
-                RatingService.service_type(Code=self.ups_service_type.code)
+                RatingService.service_type(Code=self.carrier_service.code)
             )
             request_option = E.RequestOption('Rate')
         else:
@@ -323,10 +311,10 @@ class Sale:
 
         Downstream module can decide the eligibility of ups service for sale
         """
-        UPSService = Pool().get('ups.service')
+        CarrierService = Pool().get('carrier.service')
 
         try:
-            service, = UPSService.search([
+            service, = CarrierService.search([
                 ('code', '=', code)
             ])
         except ValueError:
@@ -358,7 +346,7 @@ class Sale:
         # values that need to be written back to sale order
         write_vals = {
             'carrier': carrier.id,
-            'ups_service_type': service.id,
+            'carrier_service': service.id,
         }
 
         return (
