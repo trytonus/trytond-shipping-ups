@@ -5,7 +5,7 @@
 """
 from trytond.pool import Pool
 from party import Address
-from carrier import Carrier, UPSService
+from carrier import Carrier, CarrierService, BoxType
 from sale import Configuration, Sale
 from configuration import PartyConfiguration
 from stock import (
@@ -18,7 +18,8 @@ def register():
         PartyConfiguration,
         Address,
         Carrier,
-        UPSService,
+        CarrierService,
+        BoxType,
         Configuration,
         Sale,
         StockMove,

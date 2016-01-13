@@ -32,7 +32,6 @@ class TestUPS(unittest.TestCase):
         self.Address = POOL.get('party.address')
         self.Sale = POOL.get('sale.sale')
         self.SaleConfig = POOL.get('sale.configuration')
-        self.UPSService = POOL.get('ups.service')
         self.Product = POOL.get('product.product')
         self.Uom = POOL.get('product.uom')
         self.Account = POOL.get('account.account')
@@ -53,6 +52,9 @@ class TestUPS(unittest.TestCase):
         self.IrAttachment = POOL.get('ir.attachment')
         self.User = POOL.get('res.user')
         self.Template = POOL.get('product.template')
+        self.ModelData = POOL.get('ir.model.data')
+        self.CarrierService = POOL.get('carrier.service')
+        self.BoxType = POOL.get('carrier.box_type')
         self.GenerateLabel = POOL.get('shipping.label', type="wizard")
 
         assert 'UPS_LICENSE_NO' in os.environ, \
@@ -213,19 +215,13 @@ class TestUPS(unittest.TestCase):
                 }])]
             }])
 
-        self.ups_service, = self.UPSService.create([{
-            'name': 'Next Day Air',
-            'code': '01',
-        }])
+        self.ups_next_day_air = self.ModelData.get_id(
+            "shipping_ups", "carrier_service_ups_01"
+        )
+        self.ups_2nd_day_air = self.ModelData.get_id(
+            "shipping_ups", "carrier_service_ups_02"
+        )
 
-        self.ups_service2, = self.UPSService.create([{
-            'name': 'Second Next Day Air',
-            'code': '02',
-        }])
-
-        self.SaleConfig.create([{
-            'ups_service_type': self.ups_service.id,
-        }])
         self.company, = self.Company.create([{
             'party': company_party.id,
             'currency': self.currency.id,
@@ -290,13 +286,13 @@ class TestUPS(unittest.TestCase):
             'cost_price': Decimal('5'),
             'default_uom': uom_kg,
             'account_revenue': account_revenue.id,
-            'weight': .5,
-            'weight_uom': uom_pound.id,
             'products': [('create', self.Template.default_products())]
         }])
 
         self.product = template.products[0]
         self.product.code = 'TEST_PRODUCT'
+        self.product.weight = .5
+        self.product.weight_uom = uom_pound.id
         self.product.save()
 
         # Create party
@@ -315,6 +311,8 @@ class TestUPS(unittest.TestCase):
             'ups_is_test': True,
             'ups_uom_system': '01',
             'currency': self.currency.id,
+            'services': [('add', map(int, self.CarrierService.search([])))],
+            'box_types': [('add', map(int, self.BoxType.search([])))],
         }])
         self.ups_worldship_carrier, = self.Carrier.create([{
             'party': carrier_party.id,
@@ -366,7 +364,7 @@ class TestUPS(unittest.TestCase):
                 'invoice_address': party.addresses[0].id,
                 'shipment_address': party.addresses[0].id,
                 'carrier': self.carrier.id,
-                'ups_service_type': self.ups_service.id,
+                'carrier_service': self.ups_next_day_air,
                 'ups_saturday_delivery': True,
                 'lines': [
                     ('create', [{
@@ -383,27 +381,8 @@ class TestUPS(unittest.TestCase):
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 1)
             self.Sale.quote([sale])
-            self.assertEqual(len(sale.lines), 2)
             self.Sale.confirm([sale])
             self.Sale.process([sale])
-
-    def test_0005_is_ups_shipping(self):
-        """Test function fields is_ups_shipping
-        """
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            # Call method to create sale order
-            self.setup_defaults()
-            self.create_sale(self.sale_party)
-
-            shipment, = self.StockShipmentOut.search([])
-            self.assertTrue(shipment.is_ups_shipping)
-            self.assertFalse(shipment.is_ups_worldship_shipping)
-
-            # Change carrier to ups_worldship
-            self.carrier.carrier_cost_method = 'ups_worldship'
-            self.carrier.save()
-            self.assertTrue(shipment.is_ups_worldship_shipping)
-            self.assertFalse(shipment.is_ups_shipping)
 
     def test_0010_generate_ups_labels(self):
         """Test case to generate UPS labels.
@@ -435,7 +414,7 @@ class TestUPS(unittest.TestCase):
 
             with Transaction().set_context(company=self.company.id):
                 with self.assertRaises(UserError):
-                    shipment.make_ups_labels()
+                    shipment.generate_shipping_labels()
 
                 # Create a package
                 type_id = ModelData.get_id(
@@ -445,9 +424,10 @@ class TestUPS(unittest.TestCase):
                     'shipment': '%s,%d' % (shipment.__name__, shipment.id),
                     'type': type_id,
                     'moves': [('add', shipment.outgoing_moves)],
+                    'box_type': ModelData.get_id("shipping_ups", "ups_02"),
                 }])
                 # Call method to generate labels.
-                shipment.make_ups_labels()
+                shipment.generate_shipping_labels()
 
             self.assertTrue(shipment.packages)
             # Check if by default 1 package was created
@@ -482,7 +462,7 @@ class TestUPS(unittest.TestCase):
                 'invoice_address': party.addresses[0].id,
                 'shipment_address': party.addresses[0].id,
                 'carrier': self.carrier.id,
-                'ups_service_type': self.ups_service2.id,
+                'carrier_service': self.ups_2nd_day_air,
                 'ups_saturday_delivery': True,
                 'lines': [
                     ('create', [{
@@ -506,7 +486,6 @@ class TestUPS(unittest.TestCase):
             # Confirm and process sale order
             self.assertEqual(len(sale.lines), 2)
             self.Sale.quote([sale])
-            self.assertEqual(len(sale.lines), 3)
             self.Sale.confirm([sale])
             self.Sale.process([sale])
 
@@ -525,10 +504,12 @@ class TestUPS(unittest.TestCase):
                 'shipment': '%s,%d' % (shipment.__name__, shipment.id),
                 'type': type_id,
                 'moves': [('add', [shipment.outgoing_moves[0]])],
+                'box_type': ModelData.get_id("shipping_ups", "ups_02"),
             }, {
                 'shipment': '%s,%d' % (shipment.__name__, shipment.id),
                 'type': type_id,
                 'moves': [('add', [shipment.outgoing_moves[1]])],
+                'box_type': ModelData.get_id("shipping_ups", "ups_02"),
             }])
 
             # Before generating labels
@@ -550,9 +531,12 @@ class TestUPS(unittest.TestCase):
 
                 result = generate_label.default_start({})
 
-                self.assertEqual(result['shipment'], shipment.id)
                 self.assertEqual(result['carrier'], shipment.carrier.id)
                 self.assertEqual(result['no_of_packages'], 2)
+                self.assertEqual(
+                    result['carrier_service'],
+                    self.ups_2nd_day_air
+                )
 
                 generate_label.start.shipment = shipment.id
                 generate_label.start.override_weight = 0
@@ -561,73 +545,26 @@ class TestUPS(unittest.TestCase):
                 result = generate_label.default_ups_config({})
 
                 self.assertEqual(
-                    result['ups_service_type'], shipment.ups_service_type.id
-                )
-                self.assertEqual(
-                    result['ups_package_type'], shipment.ups_package_type
-                )
-                self.assertEqual(
                     result['ups_saturday_delivery'], True
                 )
 
-                generate_label.ups_config.ups_service_type = self.ups_service2
-                # Customer Supplied Package
-                generate_label.ups_config.ups_package_type = '02'
+                generate_label.ups_config.carrier_service = self.ups_2nd_day_air
                 generate_label.ups_config.ups_saturday_delivery = False
 
-                result = generate_label.default_generate({})
-
-                self.assertEqual(
-                    result['message'],
-                    'Shipment labels have been generated via %s and saved as '
-                    'attachments for the shipment' % (
-                        shipment.carrier.carrier_cost_method.upper()
-                    )
-                )
+                generate_label.transition_generate_labels()
 
             self.assertTrue(package1.tracking_number)
             self.assertTrue(package2.tracking_number)
             self.assertEqual(shipment.carrier, self.carrier)
             self.assertNotEqual(shipment.cost, Decimal('0'))
             self.assertEqual(shipment.cost_currency, self.currency)
-            self.assertEqual(shipment.ups_service_type, self.ups_service2)
-            self.assertEqual(shipment.ups_package_type, '02')
-            self.assertEqual(shipment.ups_saturday_delivery, False)
+            self.assertEqual(shipment.carrier_service.id, self.ups_2nd_day_air)
+            self.assertEqual(shipment.ups_saturday_delivery, True)
             self.assertTrue(
                 self.IrAttachment.search([
                     ('resource', '=', 'stock.shipment.out,%s' % shipment.id)
                 ], count=True) == 2
             )
-
-    def test_0025_ups_readonly(self):
-        """
-        Test that UPS service name and code fields are not editable
-        only if they originate from XML.
-        """
-        ModelData = POOL.get('ir.model.data')
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
-
-            xml_record = self.UPSService(ModelData.get_id(
-                'shipping_ups', 'shipping_method_01'
-            ))
-
-            for argument in [
-                    {'name': 'None'},
-                    {'code': '1234'}
-            ]:
-                self.assertRaises(
-                    UserError, self.ups_service.write,
-                    [xml_record], argument
-                )
-            self.assertTrue(xml_record.system_generated)
-
-            # Write on a record created manually is successful
-            self.UPSService.write([self.ups_service], {
-                'name': 'Test Service',
-                'code': '5432',
-            })
-            self.assertFalse(self.ups_service.system_generated)
 
     def test_0030_address_validation(self):
         """
@@ -699,7 +636,7 @@ class TestUPS(unittest.TestCase):
                     'invoice_address': self.sale_party.addresses[0].id,
                     'shipment_address': self.sale_party.addresses[0].id,
                     'carrier': self.carrier.id,
-                    'ups_service_type': self.ups_service.id,
+                    'carrier_service': self.ups_next_day_air,
                     'ups_saturday_delivery': True,
                     'lines': [
                         ('create', [{
@@ -716,7 +653,7 @@ class TestUPS(unittest.TestCase):
                 self.assertEqual(len(sale.lines), 1)
 
             with Transaction().set_context(sale=sale):
-                self.assertGreater(self.carrier.get_rates(), 0)
+                self.assertGreater(sale.get_shipping_rates(), 0)
 
     def test_0040_test_worldship_xml(self):
         """

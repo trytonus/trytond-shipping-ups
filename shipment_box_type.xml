@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<tryton>
+    <data>      
+        <record model="carrier.box_type" id="ups_01">
+            <field name="name">UPS Letter</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">01</field>
+        </record>
+        <record model="carrier.box_type" id="ups_02">
+            <field name="name">Customer Supplied Package</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">02</field>
+        </record>
+        <record model="carrier.box_type" id="ups_03">
+            <field name="name">Tube</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">03</field>
+        </record>
+        <record model="carrier.box_type" id="ups_04">
+            <field name="name">PAK</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">04</field>
+        </record>
+        <record model="carrier.box_type" id="ups_21">
+            <field name="name">UPS Express Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">21</field>
+        </record>
+        <record model="carrier.box_type" id="ups_24">
+            <field name="name">UPS 25KG Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">24</field>
+        </record>
+        <record model="carrier.box_type" id="ups_25">
+            <field name="name">UPS 10KG Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">25</field>
+        </record>
+        <record model="carrier.box_type" id="ups_30">
+            <field name="name">Pallet</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">30</field>
+        </record>
+        <record model="carrier.box_type" id="ups_2a">
+            <field name="name">Small Express Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">2a</field>
+        </record>
+        <record model="carrier.box_type" id="ups_2b">
+            <field name="name">Medium Express Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">2b</field>
+        </record>
+        <record model="carrier.box_type" id="ups_2c">
+            <field name="name">Large Express Box</field>
+            <field name="carrier_cost_method">ups</field>
+            <field name="code">2c</field>
+        </record>
+    </data>
+</tryton>
