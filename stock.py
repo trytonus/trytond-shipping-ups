@@ -265,6 +265,7 @@ class ShipmentOut:
 
         :return: Tracking number as string
         """
+        Shipment = Pool().get('stock.shipment.out')
         Attachment = Pool().get('ir.attachment')
         Tracking = Pool().get('shipment.tracking')
 
@@ -384,7 +385,7 @@ class ShipmentOut:
 
         Tracking.create(tracking_values)
 
-        return self.tracking_number
+        return Shipment(self.id).tracking_number
 
     @fields.depends('ups_service_type')
     def on_change_carrier(self):
