@@ -3,8 +3,6 @@
     <xpath expr="/form/field[@name='sale_shipment_cost_method']" position="after">
         <newline/>
         <separator string="UPS Defaults" colspan="4" id="ups"/>
-        <label name="ups_service_type"/>
-        <field name="ups_service_type" widget="selection"/>
         <label name="ups_package_type"/>
         <field name="ups_package_type"/>
     </xpath>

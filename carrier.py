@@ -5,22 +5,16 @@
 """
 from decimal import Decimal
 
-from trytond.model import ModelSQL, ModelView, fields
+from trytond.model import fields
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
-from trytond.pyson import Eval, Bool
+from trytond.pyson import Eval
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept, ShipmentVoid
 from ups.rating_package import RatingService
 from ups.address_validation import AddressValidation
 
-__all__ = ['Carrier', 'UPSService']
+__all__ = ['Carrier', 'CarrierService']
 __metaclass__ = PoolMeta
-
-SERVICE_STATES = {
-    'readonly': Bool(Eval('system_generated')),
-    'required': True,
-}
-SERVICE_DEPENDS = ['system_generated']
 
 
 class Carrier:
@@ -158,7 +152,7 @@ class Carrier:
         display name of service
         """
         return "%s %s" % (
-            self.carrier_product.code, service.display_name or service.name
+            self.carrier_product.code, service.name
         )
 
     def get_sale_price(self):
@@ -272,42 +266,13 @@ class Carrier:
             )
 
 
-class UPSService(ModelSQL, ModelView):
-    "UPS Service"
-    __name__ = 'ups.service'
+class CarrierService:
+    __name__ = 'carrier.service'
 
-    active = fields.Boolean('Active', select=True)
-    name = fields.Char(
-        'Name', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    code = fields.Char(
-        'Service Code', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    display_name = fields.Char('Display Name', select=True)
-    system_generated = fields.Function(
-        fields.Boolean('System Generated?'),
-        getter='get_system_generated'
-    )
+    @classmethod
+    def __setup__(cls):
+        super(CarrierService, cls).__setup__()
 
-    @staticmethod
-    def default_active():
-        return True
-
-    @staticmethod
-    def default_system_generated():
-        return False
-
-    def get_system_generated(self, name=None):
-        """
-        Getter for system_generated boolean field
-        """
-        ModelData = Pool().get('ir.model.data')
-
-        # If the record originated from XML
-        if ModelData.search([
-            ('db_id', '=', self.id),
-            ('model', '=', 'ups.service'),
-        ], limit=1):
-            return True
+        for selection in [('ups', 'UPS'), ('ups_worldship', 'UPS Worldship')]:
+            if selection not in cls.cost_method.selection:
+                cls.cost_method.selection.append(selection)

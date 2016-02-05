@@ -45,9 +45,6 @@ class ShipmentOut:
         fields.Boolean('Is UPS Worldship Shipping ?'),
         'get_is_ups_shipping'
     )
-    ups_service_type = fields.Many2One(
-        'ups.service', 'UPS Service Type', states=STATES, depends=['state']
-    )
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type', states=STATES,
         depends=['state']
@@ -72,12 +69,6 @@ class ShipmentOut:
         return config.ups_package_type
 
     @staticmethod
-    def default_ups_service_type():
-        Config = Pool().get('sale.configuration')
-        config = Config(1)
-        return config.ups_service_type and config.ups_service_type.id or None
-
-    @staticmethod
     def default_ups_saturday_delivery():
         return False
 
@@ -96,7 +87,7 @@ class ShipmentOut:
         cls._error_messages.update({
             'ups_wrong_carrier':
                 'Carrier for selected shipment is not UPS',
-            'ups_service_type_missing':
+            'carrier_service_missing':
                 'UPS service type missing.',
             'tracking_number_already_present':
                 'Tracking Number is already present for this shipment.',
@@ -138,8 +129,8 @@ class ShipmentOut:
         Company = Pool().get('company.company')
 
         carrier = self.carrier
-        if not self.ups_service_type:
-            self.raise_user_error('ups_service_type_missing')
+        if not self.carrier_service:
+            self.raise_user_error('carrier_service_missing')
 
         payment_info_prepaid = \
             ShipmentConfirm.payment_information_prepaid_type(
@@ -161,7 +152,7 @@ class ShipmentOut:
             from_address.to_ups_shipper(carrier=carrier),
             self.delivery_address.to_ups_to_address(),
             from_address.to_ups_from_address(),
-            ShipmentConfirm.service_type(Code=self.ups_service_type.code),
+            ShipmentConfirm.service_type(Code=self.carrier_service.code),
             payment_info, shipment_service,
         ]
         if carrier.ups_negotiated_rates:
@@ -387,7 +378,7 @@ class ShipmentOut:
 
         return Shipment(self.id).tracking_number
 
-    @fields.depends('ups_service_type')
+    @fields.depends('carrier_service')
     def on_change_carrier(self):
         """
         Show/Hide UPS Tab in view on change of carrier
@@ -499,7 +490,7 @@ class ShippingUps(ModelView):
     'Generate Labels'
     __name__ = 'shipping.label.ups'
 
-    ups_service_type = fields.Many2One('ups.service', 'UPS Service Type')
+    carrier_service = fields.Many2One('carrier.service', 'UPS Service Type')
     ups_package_type = fields.Selection(
         UPS_PACKAGE_TYPES, 'Package Content Type'
     )
@@ -525,10 +516,10 @@ class GenerateShippingLabel(Wizard):
         shipment = self.start.shipment
 
         return {
-            'ups_service_type': (
-                shipment.ups_service_type and shipment.ups_service_type.id
+            'carrier_service': (
+                shipment.carrier_service and shipment.carrier_service.id
             ) or (
-                config.ups_service_type and config.ups_service_type.id
+                config.carrier_service and config.carrier_service.id
             ) or None,
             'ups_package_type': (
                 shipment.ups_package_type or config.ups_package_type
@@ -547,7 +538,7 @@ class GenerateShippingLabel(Wizard):
         shipment = super(GenerateShippingLabel, self).update_shipment()
 
         if self.start.carrier.carrier_cost_method == 'ups':
-            shipment.ups_service_type = self.ups_config.ups_service_type
+            shipment.carrier_service = self.ups_config.carrier_service
             shipment.ups_package_type = self.ups_config.ups_package_type
             shipment.ups_saturday_delivery = \
                 self.ups_config.ups_saturday_delivery
