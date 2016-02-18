@@ -3,24 +3,15 @@
     carrier
 
 """
-from decimal import Decimal
-
-from trytond.model import ModelSQL, ModelView, fields
+from trytond.model import fields
 from trytond.pool import PoolMeta, Pool
-from trytond.transaction import Transaction
-from trytond.pyson import Eval, Bool
+from trytond.pyson import Eval
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept, ShipmentVoid
 from ups.rating_package import RatingService
 from ups.address_validation import AddressValidation
 
-__all__ = ['Carrier', 'UPSService']
+__all__ = ['Carrier', 'CarrierService', 'BoxType']
 __metaclass__ = PoolMeta
-
-SERVICE_STATES = {
-    'readonly': Bool(Eval('system_generated')),
-    'required': True,
-}
-SERVICE_DEPENDS = ['system_generated']
 
 
 class Carrier:
@@ -122,7 +113,10 @@ class Carrier:
     def __setup__(cls):
         super(Carrier, cls).__setup__()
 
-        for selection in [('ups', 'UPS'), ('ups_worldship', 'UPS Worldship')]:
+        for selection in [
+                ('ups', 'UPS (Direct)'),
+                ('ups_worldship', 'UPS Worldship (Direct)')
+        ]:
             if selection not in cls.carrier_cost_method.selection:
                 cls.carrier_cost_method.selection.append(selection)
 
@@ -130,25 +124,6 @@ class Carrier:
             'ups_credentials_required':
                 'UPS settings on UPS configuration are incomplete.',
         })
-
-    def get_rates(self):
-        """
-        Return list of tuples as:
-            [
-                (<display method name>, <rate>, <currency>, <metadata>)
-                ...
-            ]
-        """
-        Sale = Pool().get('sale.sale')
-
-        sale = Transaction().context.get('sale')
-
-        if sale and self.carrier_cost_method == 'ups':
-            sale = Sale(sale)
-            sale.carrier = self
-            return sale.get_ups_shipping_rates()
-
-        return super(Carrier, self).get_rates()
 
     def _get_ups_service_name(self, service):
         """
@@ -158,43 +133,8 @@ class Carrier:
         display name of service
         """
         return "%s %s" % (
-            self.carrier_product.code, service.display_name or service.name
+            self.carrier_product.code, service.name
         )
-
-    def get_sale_price(self):
-        """Estimates the shipment rate for the current shipment
-
-        The get_sale_price implementation by tryton's carrier module
-        returns a tuple of (value, currency_id)
-
-        :returns: A tuple of (value, currency_id which in this case is USD)
-        """
-        Sale = Pool().get('sale.sale')
-        Shipment = Pool().get('stock.shipment.out')
-        Currency = Pool().get('currency.currency')
-
-        shipment_id = Transaction().context.get('shipment')
-        sale_id = Transaction().context.get('sale')
-        default_currency, = Currency.search([('code', '=', 'USD')])
-
-        if Transaction().context.get('ignore_carrier_computation'):
-            return Decimal('0'), default_currency.id
-        if not (sale_id or shipment_id):
-            return Decimal('0'), default_currency.id
-
-        if self.carrier_cost_method != 'ups':
-            return super(Carrier, self).get_sale_price()
-
-        if sale_id:
-            return Sale(sale_id).get_ups_shipping_cost()
-
-        if shipment_id and shipment_id > 0:
-            # get_ups_shipping_cost must not be called if shipment is not saved.
-            # If shipment is saved/active record is created properly,
-            # then the ID must be a positive integer.
-            return Shipment(shipment_id).get_ups_shipping_cost()
-
-        return Decimal('0'), default_currency.id
 
     @staticmethod
     def default_ups_uom_system():
@@ -272,42 +212,31 @@ class Carrier:
             )
 
 
-class UPSService(ModelSQL, ModelView):
-    "UPS Service"
-    __name__ = 'ups.service'
+class CarrierService:
+    __name__ = 'carrier.service'
 
-    active = fields.Boolean('Active', select=True)
-    name = fields.Char(
-        'Name', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    code = fields.Char(
-        'Service Code', required=True, select=True,
-        states=SERVICE_STATES, depends=SERVICE_DEPENDS
-    )
-    display_name = fields.Char('Display Name', select=True)
-    system_generated = fields.Function(
-        fields.Boolean('System Generated?'),
-        getter='get_system_generated'
-    )
+    @classmethod
+    def __setup__(cls):
+        super(CarrierService, cls).__setup__()
 
-    @staticmethod
-    def default_active():
-        return True
+        for selection in [
+                ('ups', 'UPS (Direct)'),
+                ('ups_worldship', 'UPS Worldship (Direct)')
+        ]:
+            if selection not in cls.carrier_cost_method.selection:
+                cls.carrier_cost_method.selection.append(selection)
 
-    @staticmethod
-    def default_system_generated():
-        return False
 
-    def get_system_generated(self, name=None):
-        """
-        Getter for system_generated boolean field
-        """
-        ModelData = Pool().get('ir.model.data')
+class BoxType:
+    __name__ = "carrier.box_type"
 
-        # If the record originated from XML
-        if ModelData.search([
-            ('db_id', '=', self.id),
-            ('model', '=', 'ups.service'),
-        ], limit=1):
-            return True
+    @classmethod
+    def __setup__(cls):
+        super(BoxType, cls).__setup__()
+
+        for selection in [
+                ('ups', 'UPS (Direct)'),
+                ('ups_worldship', 'UPS Worldship (Direct)')
+        ]:
+            if selection not in cls.carrier_cost_method.selection:
+                cls.carrier_cost_method.selection.append(selection)
