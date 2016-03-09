@@ -420,8 +420,7 @@ class ShipmentOut:
                 'tracking_number': tracking_number,
                 'origin': '%s,%d' % (
                     stock_package.__name__, stock_package.id
-                ),
-                'is_master': tracking_number == shipment_identification_number,
+                )
             })
 
             index += 1
@@ -439,6 +438,12 @@ class ShipmentOut:
             }])
 
         Tracking.create(tracking_values)
+
+        shipment_tracking_number, = Tracking.search([
+            ('tracking_number', '=', shipment_identification_number)
+        ])
+        self.tracking_number = shipment_tracking_number.id
+        self.save()
 
     def get_worldship_goods(self):
         """
