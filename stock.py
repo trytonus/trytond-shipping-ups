@@ -317,12 +317,12 @@ class ShipmentOut:
         )
         return shipment_confirm
 
-    def generate_shipping_labels(self):
+    def generate_shipping_labels(self, **kwargs):
         Attachment = Pool().get('ir.attachment')
         Tracking = Pool().get('shipment.tracking')
 
         if self.carrier_cost_method != "ups":
-            return super(ShipmentOut, self).generate_shipping_labels()
+            return super(ShipmentOut, self).generate_shipping_labels(**kwargs)
 
         carrier = self.carrier
         if self.state not in ('packed', 'done'):
