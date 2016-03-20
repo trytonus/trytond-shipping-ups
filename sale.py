@@ -123,7 +123,7 @@ class Sale:
                 is_negotiated = True
 
             rate = {
-                'display_name': carrier.rec_name,
+                'display_name': "UPS %s" % service.name,
                 'carrier_service': service,
                 'cost': currency.round(Decimal(
                     str(negotiated_rate if is_negotiated else original_cost)
