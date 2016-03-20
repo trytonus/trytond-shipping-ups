@@ -113,19 +113,26 @@ class Sale:
             currency, = Currency.search([
                 ('code', '=', str(rated_shipment.TotalCharges.CurrencyCode))
             ])
+            is_negotiated = False
+            negotiated_rate = None
+            original_cost = rated_shipment.TotalCharges.MonetaryValue
             if carrier.ups_negotiated_rates and \
                     hasattr(rated_shipment, 'NegotiatedRates'):
                 # If there are negotiated rates return that instead
-                cost = rated_shipment.NegotiatedRates.NetSummaryCharges.GrandTotal.MonetaryValue  # noqa
-            else:
-                cost = rated_shipment.TotalCharges.MonetaryValue
+                negotiated_rate = rated_shipment.NegotiatedRates.NetSummaryCharges.GrandTotal.MonetaryValue  # noqa
+                is_negotiated = True
 
             rate = {
-                'display_name': carrier.rec_name,
+                'display_name': "UPS %s" % service.name,
                 'carrier_service': service,
-                'cost': currency.round(Decimal(str(cost))),
+                'cost': currency.round(Decimal(
+                    str(negotiated_rate if is_negotiated else original_cost)
+                )),
                 'cost_currency': currency,
                 'carrier': carrier,
+                'ups_is_negotiated': is_negotiated,
+                'ups_negotiated_rate': negotiated_rate,
+                'ups_original_cost': original_cost,
             }
 
             if hasattr(rated_shipment, 'ScheduledDeliveryTime'):
