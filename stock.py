@@ -174,6 +174,7 @@ class ShipmentOut:
                     rated_shipment.GuaranteedDaysToDelivery.pyval
 
             rates.append(rate)
+        return rates
 
     def _get_rate_request_xml(self, carrier, carrier_service):
         SaleConfiguration = Pool().get("sale.configuration")
@@ -204,7 +205,7 @@ class ShipmentOut:
 
         shipment_args.extend([
             from_address.to_ups_shipper(carrier=carrier),  # Shipper
-            self.shipment_address.to_ups_to_address(),      # Ship to
+            self.delivery_address.to_ups_to_address(),      # Ship to
             from_address.to_ups_from_address(),   # Ship from
 
         ])
