@@ -5,6 +5,7 @@
 """
 from decimal import Decimal
 from logbook import Logger
+from babel.numbers import format_currency
 
 from lxml import etree
 from lxml.builder import E
@@ -12,6 +13,7 @@ from ups.rating_package import RatingService
 from ups.base import PyUPSException
 from trytond.model import fields
 from trytond.pool import PoolMeta, Pool
+from trytond.transaction import Transaction
 
 __all__ = ['Configuration', 'Sale']
 __metaclass__ = PoolMeta
@@ -122,12 +124,13 @@ class Sale:
                 negotiated_rate = rated_shipment.NegotiatedRates.NetSummaryCharges.GrandTotal.MonetaryValue  # noqa
                 is_negotiated = True
 
+            cost = currency.round(Decimal(
+                str(negotiated_rate if is_negotiated else original_cost)
+            ))
+
             rate = {
-                'display_name': "UPS %s" % service.name,
                 'carrier_service': service,
-                'cost': currency.round(Decimal(
-                    str(negotiated_rate if is_negotiated else original_cost)
-                )),
+                'cost': cost,
                 'cost_currency': currency,
                 'carrier': carrier,
                 'ups_is_negotiated': is_negotiated,
@@ -141,6 +144,16 @@ class Sale:
             if hasattr(rated_shipment, 'GuaranteedDaysToDelivery'):
                 rate['GuaranteedDaysToDelivery'] = \
                     rated_shipment.GuaranteedDaysToDelivery.pyval
+
+            duration = "%s" % (
+                rate.get('GuaranteedDaysToDelivery') or rate.get('ScheduledDeliveryTime') or ''  # noqa
+            )
+            display_name = "UPS %s %s %s" % (
+                service.name, format_currency(
+                    cost, currency.code, locale=Transaction().language
+                ), "(%s business days)" % duration if duration else ''
+            )
+            rate['display_name'] = display_name
 
             rates.append(rate)
         return rates
