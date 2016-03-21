@@ -187,7 +187,7 @@ class Sale:
         if carrier_service:
             # TODO: handle ups_saturday_delivery
             shipment_args.append(
-                RatingService.service_type(Code=self.carrier_service.code)
+                RatingService.service_type(Code=carrier_service.code)
             )
             request_option = E.RequestOption('Rate')
         else:
