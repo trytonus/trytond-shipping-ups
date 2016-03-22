@@ -52,12 +52,12 @@ class Sale:
     def default_ups_saturday_delivery():
         return False
 
-    def get_shipping_rate(self, carrier, carrier_service=None, silent=False):
+    def get_shipping_rate(self, carrier, carrier_service=None):
         Currency = Pool().get('currency.currency')
 
         if carrier.carrier_cost_method != 'ups':
             return super(Sale, self).get_shipping_rate(
-                carrier, carrier_service, silent
+                carrier, carrier_service
             )
 
         rate_request = self._get_rate_request_xml(carrier, carrier_service)
@@ -84,9 +84,6 @@ class Sale:
                 % etree.tostring(response, pretty_print=True)
             )
         except PyUPSException, e:
-            if silent:
-                return []
-
             error = e[0].split(':')
             if error[0] in ['Hard-111285', 'Hard-111286']:
                 # Can't sit quite !
@@ -94,15 +91,17 @@ class Sale:
                 #   %country%.
                 # Hard-111286: %state% is not a valid state abbreviation for
                 #   %country%.
-                self.raise_user_error('InvalidAddress: %s' % unicode(error[1]))
+                return [], ('InvalidAddress: %s' % unicode(error[1]), )
             elif error[0] in ['Hard-111035', 'Hard-111036']:
                 # Can't sit quite !
                 # Hard-111035: The maximum per package weight for that service
                 #   from the selected country is %country.maxPkgWeight% pounds.
                 # Hard-111036: The maximum per package weight for that service
                 #   from the selected country is %country.maxPkgWeight% kg.
-                self.raise_user_error('WeightExceed: %s' % unicode(error[1]))
-            self.raise_user_error(unicode(e[0]))
+                return [], ('WeightExceed: %s' % unicode(error[1]), )
+            return [], (unicode(e[0]), )
+        except Exception, e:
+            return [], (unicode(e[0]), )
 
         rates = []
         for rated_shipment in response.iterchildren(tag='RatedShipment'):
@@ -156,7 +155,7 @@ class Sale:
             rate['display_name'] = display_name
 
             rates.append(rate)
-        return rates
+        return rates, []
 
     def _get_rate_request_xml(self, carrier, carrier_service):
         SaleConfiguration = Pool().get("sale.configuration")
