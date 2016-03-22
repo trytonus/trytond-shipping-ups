@@ -12,6 +12,7 @@ from time import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from lxml import objectify
+from pprint import pprint
 
 
 import unittest
@@ -653,7 +654,9 @@ class TestUPS(unittest.TestCase):
                 self.assertEqual(len(sale.lines), 1)
 
             with Transaction().set_context(sale=sale):
-                self.assertGreater(sale.get_shipping_rates(), 0)
+                rates = sale.get_shipping_rates()
+                pprint (rates)
+                self.assertGreater(rates, 0)
 
     def test_0040_test_worldship_xml(self):
         """
