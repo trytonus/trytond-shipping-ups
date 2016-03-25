@@ -585,9 +585,10 @@ class GenerateShippingLabel(Wizard):
 
     def transition_generate_labels(self):
         if self.start.carrier.carrier_cost_method == "ups":
-            self.shipment.ups_saturday_delivery = \
+            shipment = self.shipment
+            shipment.ups_saturday_delivery = \
                 self.ups_config.ups_saturday_delivery
-            self.shipment.save()
+            shipment.save()
 
         return super(GenerateShippingLabel, self).transition_generate_labels()
 
