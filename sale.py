@@ -148,10 +148,9 @@ class Sale:
             duration = "%s" % (
                 rate.get('GuaranteedDaysToDelivery') or rate.get('ScheduledDeliveryTime') or ''  # noqa
             )
-            display_name = "UPS %s %s %s" % (
-                service.name, format_currency(
-                    cost, currency.code, locale=Transaction().language
-                ), "(%s business days)" % duration if duration else ''
+            display_name = "UPS %s %s" % (
+                service.name,
+                "(%s business days)" % duration if duration else ''
             )
             rate['display_name'] = display_name
 
