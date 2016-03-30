@@ -8,7 +8,6 @@ import base64
 from lxml import etree
 from lxml.builder import E
 from logbook import Logger
-from babel.numbers import format_currency
 
 from ups.shipping_package import ShipmentConfirm, ShipmentAccept
 from ups.rating_package import RatingService
@@ -178,10 +177,9 @@ class ShipmentOut:
             duration = "%s" % (
                 rate.get('GuaranteedDaysToDelivery') or rate.get('ScheduledDeliveryTime') or ''  # noqa
             )
-            display_name = "%s %s %s" % (
-                carrier.rec_name, format_currency(
-                    cost, currency.code, locale=Transaction().language
-                ), "(%s business days)" % duration if duration else ''
+            display_name = "%s %s" % (
+                carrier.rec_name,
+                "(%s business days)" % duration if duration else ''
             )
             rate['display_name'] = display_name
 
