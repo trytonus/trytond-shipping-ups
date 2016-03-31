@@ -655,7 +655,7 @@ class TestUPS(unittest.TestCase):
 
             with Transaction().set_context(sale=sale):
                 rates = sale.get_shipping_rates()
-                pprint (rates)
+                pprint(rates)
                 self.assertGreater(rates, 0)
 
     def test_0040_test_worldship_xml(self):

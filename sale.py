@@ -5,7 +5,6 @@
 """
 from decimal import Decimal
 from logbook import Logger
-from babel.numbers import format_currency
 
 from lxml import etree
 from lxml.builder import E
@@ -13,7 +12,6 @@ from ups.rating_package import RatingService
 from ups.base import PyUPSException
 from trytond.model import fields
 from trytond.pool import PoolMeta, Pool
-from trytond.transaction import Transaction
 
 __all__ = ['Configuration', 'Sale']
 __metaclass__ = PoolMeta
