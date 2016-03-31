@@ -2,6 +2,7 @@
 <tryton>
     <data>
 
+        <!-- UPS Services -->
         <record id="carrier_service_ups_01" model="carrier.service">
             <field name="name">Next Day Air</field>
             <field name="code">01</field>
@@ -86,6 +87,93 @@
             <field name="name">UPS Today Express Saver</field>
             <field name="code">86</field>
             <field name="carrier_cost_method">ups</field>
+        </record>
+
+        <!--UPS Worldship Services-->
+        <record id="carrier_service_ups_worldship_01" model="carrier.service">
+            <field name="name">Next Day Air</field>
+            <field name="code">01</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_02" model="carrier.service">
+            <field name="name">2nd Day Air</field>
+            <field name="code">02</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_03" model="carrier.service">
+            <field name="name">Ground</field>
+            <field name="code">03</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_04" model="carrier.service">
+            <field name="name">Express</field>
+            <field name="code">07</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_05" model="carrier.service">
+            <field name="name">Expedited</field>
+            <field name="code">08</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_06" model="carrier.service">
+            <field name="name">UPS Standard</field>
+            <field name="code">11</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_07" model="carrier.service">
+            <field name="name">3 Day Select</field>
+            <field name="code">12</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_08" model="carrier.service">
+            <field name="name">Next Day Air Saver</field>
+            <field name="code">13</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_09" model="carrier.service">
+            <field name="name">Next Day Air Early AM</field>
+            <field name="code">14</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_10" model="carrier.service">
+            <field name="name">Express Plus</field>
+            <field name="code">54</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_11" model="carrier.service">
+            <field name="name">2nd Day Air A.M.</field>
+            <field name="code">59</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_12" model="carrier.service">
+            <field name="name">UPS Saver</field>
+            <field name="code">65</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_13" model="carrier.service">
+            <field name="name">UPS Today Standard</field>
+            <field name="code">82</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_14" model="carrier.service">
+            <field name="name">UPS Today Dedicated Courier</field>
+            <field name="code">83</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_15" model="carrier.service">
+            <field name="name">UPS Today Intercity</field>
+            <field name="code">84</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_16" model="carrier.service">
+            <field name="name">UPS Today Express</field>
+            <field name="code">85</field>
+            <field name="carrier_cost_method">ups_worldship</field>
+        </record>
+        <record id="carrier_service_ups_worldship_17" model="carrier.service">
+            <field name="name">UPS Today Express Saver</field>
+            <field name="code">86</field>
+            <field name="carrier_cost_method">ups_worldship</field>
         </record>
 
     </data>
