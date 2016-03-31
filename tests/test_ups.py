@@ -312,14 +312,24 @@ class TestUPS(unittest.TestCase):
             'ups_is_test': True,
             'ups_uom_system': '01',
             'currency': self.currency.id,
-            'services': [('add', map(int, self.CarrierService.search([])))],
-            'box_types': [('add', map(int, self.BoxType.search([])))],
+            'services': [('add', map(int, self.CarrierService.search([
+                ('carrier_cost_method', '=', 'ups')
+            ])))],
+            'box_types': [('add', map(int, self.BoxType.search([
+                ('carrier_cost_method', '=', 'ups')
+            ])))],
         }])
         self.ups_worldship_carrier, = self.Carrier.create([{
             'party': carrier_party.id,
             'carrier_product': carrier_product.id,
             'carrier_cost_method': 'ups_worldship',
             'currency': self.currency.id,
+            'services': [('add', map(int, self.CarrierService.search([
+                ('carrier_cost_method', '=', 'ups_worldship')
+            ])))],
+            'box_types': [('add', map(int, self.BoxType.search([
+                ('carrier_cost_method', '=', 'ups_worldship')
+            ])))],
         }])
 
         self.PartyConfig.create([{
