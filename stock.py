@@ -546,7 +546,7 @@ class StockMove:
         else:
             quantity = self.quantity
 
-        return Decimal(self.product.list_price) * Decimal(quantity)
+        return int(self.product.list_price * Decimal(quantity))
 
 
 class ShippingUps(ModelView):
