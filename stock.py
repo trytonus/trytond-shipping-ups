@@ -436,15 +436,17 @@ class ShipmentOut:
 
             index += 1
 
+            data = stock_package._process_raw_label(
+                package.LabelImage.GraphicImage.pyval
+            )
+
             Attachment.create([{
                 'name': "%s_%s_%s.png" % (
                     tracking_number,
                     shipment_identification_number,
                     stock_package.code,
                 ),
-                'data': buffer(base64.decodestring(
-                    package.LabelImage.GraphicImage.pyval
-                )),
+                'data': buffer(base64.decodestring(data)),
                 'resource': '%s,%s' % (self.__name__, self.id)
             }])
 
