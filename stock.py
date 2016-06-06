@@ -447,7 +447,10 @@ class ShipmentOut:
                     stock_package.code,
                 ),
                 'data': buffer(base64.decodestring(data)),
-                'resource': '%s,%s' % (self.__name__, self.id)
+                'resource':
+                '%s,%d' % (
+                    self.tracking_number.__name__, self.id
+                )
             }])
 
         Tracking.create(tracking_values)
