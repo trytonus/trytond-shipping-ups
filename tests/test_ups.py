@@ -398,7 +398,6 @@ class TestUPS(unittest.TestCase):
     def test_0010_generate_ups_labels(self):
         """Test case to generate UPS labels.
         """
-        Package = POOL.get('stock.package')
         ModelData = POOL.get('ir.model.data')
 
         with Transaction().start(DB_NAME, USER, context=CONTEXT):
@@ -413,9 +412,7 @@ class TestUPS(unittest.TestCase):
             })
 
             # Before generating labels
-            # There are no packages generated
-            # And no attachment created for labels
-            self.assertFalse(shipment.packages)
+            # No attachment created for labels
             attatchment = self.IrAttachment.search([])
             self.assertEqual(len(attatchment), 0)
 
@@ -427,21 +424,19 @@ class TestUPS(unittest.TestCase):
                 with self.assertRaises(UserError):
                     shipment.generate_shipping_labels()
 
-                # Create a package
-                type_id = ModelData.get_id(
+                # Use existing package
+                shipment.packages[0].box_type = ModelData.get_id(
+                    "shipping_ups", "ups_02"
+                )
+                shipment.packages[0].type = ModelData.get_id(
                     "shipping", "shipment_package_type"
                 )
-                package, = Package.create([{
-                    'shipment': '%s,%d' % (shipment.__name__, shipment.id),
-                    'type': type_id,
-                    'moves': [('add', shipment.outgoing_moves)],
-                    'box_type': ModelData.get_id("shipping_ups", "ups_02"),
-                }])
+                shipment.packages[0].save()
+
                 # Call method to generate labels.
                 shipment.generate_shipping_labels()
 
             self.assertTrue(shipment.packages)
-            # Check if by default 1 package was created
             self.assertEqual(len(shipment.packages), 1)
             self.assertTrue(shipment.packages[0].tracking_number)
             self.assertEqual(
@@ -511,12 +506,15 @@ class TestUPS(unittest.TestCase):
                 "shipping", "shipment_package_type"
             )
 
-            package1, package2 = Package.create([{
-                'shipment': '%s,%d' % (shipment.__name__, shipment.id),
-                'type': type_id,
-                'moves': [('add', [shipment.outgoing_moves[0]])],
-                'box_type': ModelData.get_id("shipping_ups", "ups_02"),
-            }, {
+            # Use existing package and create one new package
+            package1 = shipment.packages[0]
+
+            package1.box_type = ModelData.get_id(
+                "shipping_ups", "ups_02"
+            )
+            package1.type = type_id
+            package1.save()
+            package2, = Package.create([{
                 'shipment': '%s,%d' % (shipment.__name__, shipment.id),
                 'type': type_id,
                 'moves': [('add', [shipment.outgoing_moves[1]])],
