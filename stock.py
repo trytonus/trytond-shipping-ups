@@ -418,6 +418,7 @@ class ShipmentOut:
 
         index = 0
         tracking_values = []
+        attachment_values = []
         for package in response.ShipmentResults.PackageResults:
             tracking_number = unicode(package.TrackingNumber.pyval)
 
@@ -440,17 +441,24 @@ class ShipmentOut:
                 package.LabelImage.GraphicImage.pyval
             )
 
-            Attachment.create([{
+            attachment_values.append({
                 'name': "%s_%s_%s.png" % (
                     tracking_number,
                     shipment_identification_number,
                     stock_package.code,
                 ),
                 'data': buffer(base64.decodestring(data)),
-                'resource': '%s,%s' % (self.__name__, self.id)
-            }])
+            })
 
-        Tracking.create(tracking_values)
+        tracking_numbers = Tracking.create(tracking_values)
+
+        for attachment, tracking_number in zip(
+            attachment_values, tracking_numbers
+        ):
+            attachment['resource'] = '%s,%d' % (
+                tracking_number.__name__, tracking_number.id
+            )
+        Attachment.create(attachment_values)
 
         shipment_tracking_number, = Tracking.search([
             ('tracking_number', '=', shipment_identification_number)
