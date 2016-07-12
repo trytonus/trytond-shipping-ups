@@ -15,7 +15,7 @@ from ups.base import PyUPSException
 from ups.worldship_api import WorldShip
 from trytond.model import fields, ModelView
 from trytond.transaction import Transaction
-from trytond.wizard import Wizard, StateView, Button
+from trytond.wizard import Wizard, StateView, Button, StateTransition
 from trytond.pool import Pool, PoolMeta
 from trytond.pyson import Eval
 from trytond.rpc import RPC
@@ -289,7 +289,7 @@ class ShipmentOut:
             else 'None'
         )
         description = ','.join([
-            move.product.name for move in self.outgoing_moves
+            move.product.name for move in self.carrier_cost_moves
         ])
         from_address = self._get_ship_from_address()
 
@@ -309,7 +309,7 @@ class ShipmentOut:
             # Special case for US to PR or CA InvoiceLineTotal should be sent
             monetary_value = str(sum(map(
                 lambda move: move.get_monetary_value_for_ups(),
-                self.outgoing_moves
+                self.carrier_cost_moves
             )))
 
             company_id = Transaction().context.get('company')
@@ -471,7 +471,7 @@ class ShipmentOut:
         For all items in the shipment, this expects a manifest of Goods
         """
         goods = []
-        for move in self.outgoing_moves:
+        for move in self.carrier_cost_moves:
             if not move.quantity:
                 continue
             values = [
@@ -507,7 +507,7 @@ class ShipmentOut:
             )
 
         description = ','.join([
-            move.product.name for move in self.outgoing_moves
+            move.product.name for move in self.carrier_cost_moves
         ])
         ship_to = self.delivery_address.to_worldship_to_address()
         ship_from = self._get_ship_from_address().to_worldship_from_address()
@@ -575,9 +575,10 @@ class GenerateShippingLabel(Wizard):
         'shipping_ups.shipping_ups_configuration_view_form',
         [
             Button('Back', 'start', 'tryton-go-previous'),
-            Button('Continue', 'generate_labels', 'tryton-go-next'),
+            Button('Continue', 'save_ups_config', 'tryton-go-next'),
         ]
     )
+    save_ups_config = StateTransition()
 
     def default_ups_config(self, data):
         return {
@@ -591,14 +592,13 @@ class GenerateShippingLabel(Wizard):
             return 'ups_config'
         return state
 
-    def transition_generate_labels(self):
-        if self.start.carrier.carrier_cost_method == "ups":
-            shipment = self.shipment
-            shipment.ups_saturday_delivery = \
-                self.ups_config.ups_saturday_delivery
-            shipment.save()
+    def transition_save_ups_config(self):
+        shipment = self.shipment
+        shipment.ups_saturday_delivery = \
+            self.ups_config.ups_saturday_delivery
+        shipment.save()
 
-        return super(GenerateShippingLabel, self).transition_generate_labels()
+        return "select_rate"
 
 
 class Package:
