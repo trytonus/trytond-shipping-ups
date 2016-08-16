@@ -177,8 +177,8 @@ class ShipmentOut:
             duration = "%s" % (
                 rate.get('GuaranteedDaysToDelivery') or rate.get('ScheduledDeliveryTime') or ''  # noqa
             )
-            display_name = "%s %s" % (
-                carrier.rec_name,
+            display_name = "UPS %s %s" % (
+                service.name,
                 "(%s business days)" % duration if duration else ''
             )
             rate['display_name'] = display_name
