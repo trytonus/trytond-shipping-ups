@@ -211,6 +211,16 @@ class Carrier:
                 return_xml=return_xml
             )
 
+    @classmethod
+    def view_attributes(cls):
+        return super(Carrier, cls).view_attributes() + [
+            (
+                '//group[@id="ups_configuration"]', 'states', {
+                    'invisible': Eval('carrier_cost_method') != 'ups'
+                }
+            )
+        ]
+
 
 class CarrierService:
     __name__ = 'carrier.service'

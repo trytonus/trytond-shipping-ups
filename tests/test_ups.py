@@ -17,19 +17,22 @@ from pprint import pprint
 
 import unittest
 import trytond.tests.test_tryton
-from trytond.tests.test_tryton import POOL, DB_NAME, USER, CONTEXT
+from trytond.tests.test_tryton import POOL, USER, with_transaction, \
+    ModuleTestCase
 from trytond.transaction import Transaction
 from trytond.config import config
-from trytond.error import UserError
 config.set('database', 'path', '.')
 
 
-class TestUPS(unittest.TestCase):
+class TestUPS(ModuleTestCase):
     """Test UPS Integration
     """
+    module = "shipping_ups"
 
     def setUp(self):
         trytond.tests.test_tryton.install_module('shipping_ups')
+        trytond.tests.test_tryton.install_module('product_measurements')
+
         self.Address = POOL.get('party.address')
         self.Sale = POOL.get('sale.sale')
         self.SaleConfig = POOL.get('sale.configuration')
@@ -77,9 +80,10 @@ class TestUPS(unittest.TestCase):
             'account.create_chart', type="wizard"
         )
 
-        account_template, = AccountTemplate.search(
-            [('parent', '=', None)]
-        )
+        account_template, = AccountTemplate.search([
+            ('parent', '=', None),
+            ('name', '=', 'Minimal Account Chart'),
+        ])
 
         session_id, _, _ = account_create_chart.create()
         create_chart = account_create_chart(session_id)
@@ -205,7 +209,6 @@ class TestUPS(unittest.TestCase):
         with Transaction().set_context(company=None):
             company_party, = self.Party.create([{
                 'name': 'Test Party',
-                'vat_number': '123456',
                 'addresses': [('create', [{
                     'name': 'Amine Khechfe',
                     'street': '247 High Street',
@@ -213,6 +216,10 @@ class TestUPS(unittest.TestCase):
                     'city': 'Palo Alto',
                     'country': country_us.id,
                     'subdivision': subdivision_california.id,
+                }])],
+                'identifiers': [('create', [{
+                    'type': None,
+                    'code': '123456',
                 }])]
             }])
 
@@ -240,7 +247,9 @@ class TestUPS(unittest.TestCase):
             }
         )
 
-        CONTEXT.update(self.User.get_preferences(context_only=True))
+        Transaction().context.update(
+            self.User.get_preferences(context_only=True)
+        )
 
         self._create_fiscal_year(company=self.company)
         self._create_coa_minimal(company=self.company)
@@ -262,7 +271,7 @@ class TestUPS(unittest.TestCase):
         # Carrier Carrier Product
         carrier_product_template, = self.Template.create([{
             'name': 'Test Carrier Product',
-            'category': category.id,
+            'categories': [('add', [category.id])],
             'type': 'service',
             'salable': True,
             'sale_uom': uom_kg,
@@ -279,7 +288,7 @@ class TestUPS(unittest.TestCase):
         # Create product
         template, = self.Template.create([{
             'name': 'Test Product',
-            'category': category.id,
+            'categories': [('add', [category.id])],
             'type': 'goods',
             'salable': True,
             'sale_uom': uom_kg,
@@ -287,13 +296,13 @@ class TestUPS(unittest.TestCase):
             'cost_price': Decimal('5'),
             'default_uom': uom_kg,
             'account_revenue': account_revenue.id,
+            'weight': 0.5,
+            'weight_uom': uom_pound.id,
             'products': [('create', self.Template.default_products())]
         }])
 
         self.product = template.products[0]
         self.product.code = 'TEST_PRODUCT'
-        self.product.weight = .5
-        self.product.weight_uom = uom_pound.id
         self.product.save()
 
         # Create party
@@ -338,7 +347,6 @@ class TestUPS(unittest.TestCase):
 
         self.sale_party, = self.Party.create([{
             'name': 'Test Sale Party',
-            'vat_number': '123456',
             'addresses': [('create', [{
                 'name': 'John Doe',
                 'street': '250 NE 25th St',
@@ -346,6 +354,10 @@ class TestUPS(unittest.TestCase):
                 'city': 'Miami, Miami-Dade',
                 'country': country_us.id,
                 'subdivision': subdivision_florida.id,
+            }])],
+            'identifiers': [('create', [{
+                'type': None,
+                'code': '123456',
             }])]
         }])
         self.PartyContact.create([{
@@ -395,58 +407,57 @@ class TestUPS(unittest.TestCase):
             self.Sale.confirm([sale])
             self.Sale.process([sale])
 
+    @with_transaction()
     def test_0010_generate_ups_labels(self):
         """Test case to generate UPS labels.
         """
         ModelData = POOL.get('ir.model.data')
 
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
+        # Call method to create sale order
+        self.setup_defaults()
+        self.create_sale(self.sale_party)
 
-            # Call method to create sale order
-            self.setup_defaults()
-            self.create_sale(self.sale_party)
+        shipment, = self.StockShipmentOut.search([])
+        self.StockShipmentOut.write([shipment], {
+            'number': str(int(time())),
+        })
 
-            shipment, = self.StockShipmentOut.search([])
-            self.StockShipmentOut.write([shipment], {
-                'code': str(int(time())),
-            })
+        # Before generating labels
+        # No attachment created for labels
+        attatchment = self.IrAttachment.search([])
+        self.assertEqual(len(attatchment), 0)
 
-            # Before generating labels
-            # No attachment created for labels
-            attatchment = self.IrAttachment.search([])
-            self.assertEqual(len(attatchment), 0)
+        # Make shipment in packed state.
+        shipment.assign([shipment])
+        shipment.pack([shipment])
 
-            # Make shipment in packed state.
-            shipment.assign([shipment])
-            shipment.pack([shipment])
-
-            with Transaction().set_context(company=self.company.id):
-                with self.assertRaises(UserError):
-                    shipment.generate_shipping_labels()
-
-                # Use existing package
-                shipment.packages[0].box_type = ModelData.get_id(
-                    "shipping_ups", "ups_02"
-                )
-                shipment.packages[0].type = ModelData.get_id(
-                    "shipping", "shipment_package_type"
-                )
-                shipment.packages[0].save()
-
-                # Call method to generate labels.
-                shipment.generate_shipping_labels()
-
-            self.assertTrue(shipment.packages)
-            self.assertEqual(len(shipment.packages), 1)
-            self.assertTrue(shipment.packages[0].tracking_number)
-            self.assertEqual(
-                shipment.packages[0].moves, shipment.outgoing_moves)
-            self.assertTrue(
-                self.IrAttachment.search([
-                    ('resource', '=', 'stock.shipment.out,%s' % shipment.id)
-                ], count=True) > 0
+        with Transaction().set_context(company=self.company.id):
+            # Use existing package
+            package, = shipment.packages
+            package.box_type = ModelData.get_id(
+                "shipping_ups", "ups_02"
             )
+            package.type = ModelData.get_id(
+                "shipping", "shipment_package_type"
+            )
+            package.save()
 
+            # Call method to generate labels.
+            shipment.generate_shipping_labels()
+
+        self.assertTrue(shipment.packages)
+        self.assertEqual(len(shipment.packages), 1)
+        self.assertTrue(shipment.packages[0].tracking_number)
+        self.assertEqual(
+            shipment.packages[0].moves, shipment.outgoing_moves)
+        self.assertTrue(
+            self.IrAttachment.search([
+                ('resource', '=', 'shipment.tracking,%s' %
+                 shipment.packages[0].tracking_number.id)
+            ], count=True) > 0
+        )
+
+    @with_transaction()
     def test_0012_generate_ups_labels_using_wizard(self):
         """
         Test case to generate UPS labels using wizard
@@ -454,21 +465,196 @@ class TestUPS(unittest.TestCase):
         Package = POOL.get('stock.package')
         ModelData = POOL.get('ir.model.data')
 
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
+        # Call method to create sale order
+        self.setup_defaults()
 
-            # Call method to create sale order
-            self.setup_defaults()
+        # Create sale order
+        party = self.sale_party
+        sale, = self.Sale.create([{
+            'reference': 'S-1001',
+            'payment_term': self.payment_term,
+            'party': party.id,
+            'invoice_address': party.addresses[0].id,
+            'shipment_address': party.addresses[0].id,
+            'carrier': self.carrier.id,
+            'carrier_service': self.ups_2nd_day_air,
+            'ups_saturday_delivery': True,
+            'lines': [
+                ('create', [{
+                    'type': 'line',
+                    'quantity': 1,
+                    'product': self.product,
+                    'unit_price': Decimal('10.00'),
+                    'description': 'Test Description1',
+                    'unit': self.product.template.default_uom,
+                }, {
+                    'type': 'line',
+                    'quantity': 2,
+                    'product': self.product,
+                    'unit_price': Decimal('10.00'),
+                    'description': 'Test Description1',
+                    'unit': self.product.template.default_uom,
+                }]),
+            ]
+        }])
 
+        # Confirm and process sale order
+        self.assertEqual(len(sale.lines), 2)
+        self.Sale.quote([sale])
+        self.Sale.confirm([sale])
+        self.Sale.process([sale])
+
+        self.assertEqual(len(sale.shipments), 1)
+        shipment = sale.shipments[0]
+        self.assertEqual(len(shipment.outgoing_moves), 2)
+
+        self.StockShipmentOut.write([shipment], {
+            'number': str(int(time())),
+        })
+        type_id = ModelData.get_id(
+            "shipping", "shipment_package_type"
+        )
+
+        # Make shipment in packed state.
+        shipment.assign([shipment])
+        shipment.pack([shipment])
+
+        package1 = shipment.packages[0]
+
+        package1.box_type = ModelData.get_id(
+            "shipping_ups", "ups_02"
+        )
+        package1.type = type_id
+        package1.save()
+        package2, = Package.create([{
+            'shipment': '%s,%d' % (shipment.__name__, shipment.id),
+            'type': type_id,
+            'moves': [('add', [shipment.outgoing_moves[1]])],
+            'box_type': ModelData.get_id("shipping_ups", "ups_02"),
+        }])
+
+        # Before generating labels
+        # There are no attachment created for labels
+        attatchment = self.IrAttachment.search([])
+        self.assertEqual(len(attatchment), 0)
+
+        with Transaction().set_context(
+            company=self.company.id, active_id=shipment.id,
+            active_model="stock.shipment.out"
+        ):
+            # Call method to generate labels.
+            session_id, start_state, _ = self.GenerateLabel.create()
+
+            generate_label = self.GenerateLabel(session_id)
+
+            result = generate_label.default_start({})
+
+            self.assertEqual(result['carrier'], shipment.carrier.id)
+            self.assertEqual(result['no_of_packages'], 2)
+            self.assertEqual(
+                result['carrier_service'],
+                self.ups_2nd_day_air
+            )
+
+            generate_label.start.shipment = shipment.id
+            generate_label.start.override_weight = 0
+            generate_label.start.carrier = result['carrier']
+
+            result = generate_label.default_ups_config({})
+
+            self.assertEqual(
+                result['ups_saturday_delivery'], True
+            )
+
+            generate_label.ups_config.carrier_service = self.ups_2nd_day_air
+            generate_label.ups_config.ups_saturday_delivery = False
+
+            generate_label.select_rate.rate = None
+
+            generate_label.transition_generate_labels()
+
+        self.assertTrue(package1.tracking_number)
+        self.assertTrue(package2.tracking_number)
+        self.assertEqual(shipment.carrier, self.carrier)
+        self.assertNotEqual(shipment.cost, Decimal('0'))
+        self.assertEqual(shipment.cost_currency, self.currency)
+        self.assertEqual(shipment.carrier_service.id, self.ups_2nd_day_air)
+        self.assertEqual(shipment.ups_saturday_delivery, True)
+        self.assertTrue(
+            self.IrAttachment.search([], count=True) == 2
+        )
+
+    @with_transaction()
+    def test_0030_address_validation(self):
+        """
+        Test address validation with ups
+        """
+        self.setup_defaults()
+
+        country_us, = self.Country.search([('code', '=', 'US')])
+
+        subdivision_florida, = self.CountrySubdivision.search(
+            [('code', '=', 'US-FL')]
+        )
+        subdivision_california, = self.CountrySubdivision.search(
+            [('code', '=', 'US-CA')]
+        )
+
+        # Correct Address
+        suggestions = self.Address(**{
+            'name': 'John Doe',
+            'street': '250 NE 25th St',
+            'streetbis': '',
+            'zip': '33141',
+            'city': 'Miami',
+            'country': country_us.id,
+            'subdivision': subdivision_florida.id,
+        }).validate_address()
+        self.assertEqual(suggestions, True)
+
+        # Wrong subdivision
+        suggestions = self.Address(**{
+            'name': 'John Doe',
+            'street': '250 NE 25th St',
+            'streetbis': '',
+            'zip': '33141',
+            'city': 'Miami',
+            'country': country_us.id,
+            'subdivision': subdivision_california.id,
+        }).validate_address()
+        self.assertTrue(len(suggestions) > 0)
+        self.assertEqual(suggestions[0].subdivision, subdivision_florida)
+
+        # Wrong city and subdivision
+        suggestions = self.Address(**{
+            'name': 'John Doe',
+            'street': '250 NE 25th St',
+            'streetbis': '',
+            'zip': '33141',
+            'city': '',
+            'country': country_us.id,
+            'subdivision': subdivision_california.id,
+        }).validate_address()
+        self.assertTrue(len(suggestions) > 1)
+        self.assertEqual(suggestions[0].subdivision, subdivision_florida)
+
+    @with_transaction()
+    def test_0035_ups_shipping_rates(self):
+        """
+        Tests the get_ups_shipping_rates() method.
+        """
+        self.setup_defaults()
+
+        with Transaction().set_context(company=self.company.id):
             # Create sale order
-            party = self.sale_party
             sale, = self.Sale.create([{
                 'reference': 'S-1001',
                 'payment_term': self.payment_term,
-                'party': party.id,
-                'invoice_address': party.addresses[0].id,
-                'shipment_address': party.addresses[0].id,
+                'party': self.sale_party.id,
+                'invoice_address': self.sale_party.addresses[0].id,
+                'shipment_address': self.sale_party.addresses[0].id,
                 'carrier': self.carrier.id,
-                'carrier_service': self.ups_2nd_day_air,
+                'carrier_service': self.ups_next_day_air,
                 'ups_saturday_delivery': True,
                 'lines': [
                     ('create', [{
@@ -478,194 +664,18 @@ class TestUPS(unittest.TestCase):
                         'unit_price': Decimal('10.00'),
                         'description': 'Test Description1',
                         'unit': self.product.template.default_uom,
-                    }, {
-                        'type': 'line',
-                        'quantity': 2,
-                        'product': self.product,
-                        'unit_price': Decimal('10.00'),
-                        'description': 'Test Description1',
-                        'unit': self.product.template.default_uom,
                     }]),
                 ]
             }])
 
-            # Confirm and process sale order
-            self.assertEqual(len(sale.lines), 2)
-            self.Sale.quote([sale])
-            self.Sale.confirm([sale])
-            self.Sale.process([sale])
+            self.assertEqual(len(sale.lines), 1)
 
-            self.assertEqual(len(sale.shipments), 1)
-            shipment = sale.shipments[0]
-            self.assertEqual(len(shipment.outgoing_moves), 2)
+        with Transaction().set_context(sale=sale):
+            rates = sale.get_shipping_rates()
+            pprint(rates)
+            self.assertGreater(rates, 0)
 
-            self.StockShipmentOut.write([shipment], {
-                'code': str(int(time())),
-            })
-            type_id = ModelData.get_id(
-                "shipping", "shipment_package_type"
-            )
-
-            # Use existing package and create one new package
-            package1 = shipment.packages[0]
-
-            package1.box_type = ModelData.get_id(
-                "shipping_ups", "ups_02"
-            )
-            package1.type = type_id
-            package1.save()
-            package2, = Package.create([{
-                'shipment': '%s,%d' % (shipment.__name__, shipment.id),
-                'type': type_id,
-                'moves': [('add', [shipment.outgoing_moves[1]])],
-                'box_type': ModelData.get_id("shipping_ups", "ups_02"),
-            }])
-
-            # Before generating labels
-            # There are no attachment created for labels
-            attatchment = self.IrAttachment.search([])
-            self.assertEqual(len(attatchment), 0)
-
-            # Make shipment in packed state.
-            shipment.assign([shipment])
-            shipment.pack([shipment])
-
-            with Transaction().set_context(
-                company=self.company.id, active_id=shipment.id
-            ):
-                # Call method to generate labels.
-                session_id, start_state, _ = self.GenerateLabel.create()
-
-                generate_label = self.GenerateLabel(session_id)
-
-                result = generate_label.default_start({})
-
-                self.assertEqual(result['carrier'], shipment.carrier.id)
-                self.assertEqual(result['no_of_packages'], 2)
-                self.assertEqual(
-                    result['carrier_service'],
-                    self.ups_2nd_day_air
-                )
-
-                generate_label.start.shipment = shipment.id
-                generate_label.start.override_weight = 0
-                generate_label.start.carrier = result['carrier']
-
-                result = generate_label.default_ups_config({})
-
-                self.assertEqual(
-                    result['ups_saturday_delivery'], True
-                )
-
-                generate_label.ups_config.carrier_service = self.ups_2nd_day_air
-                generate_label.ups_config.ups_saturday_delivery = False
-
-                generate_label.transition_generate_labels()
-
-            self.assertTrue(package1.tracking_number)
-            self.assertTrue(package2.tracking_number)
-            self.assertEqual(shipment.carrier, self.carrier)
-            self.assertNotEqual(shipment.cost, Decimal('0'))
-            self.assertEqual(shipment.cost_currency, self.currency)
-            self.assertEqual(shipment.carrier_service.id, self.ups_2nd_day_air)
-            self.assertEqual(shipment.ups_saturday_delivery, True)
-            self.assertTrue(
-                self.IrAttachment.search([
-                    ('resource', '=', 'stock.shipment.out,%s' % shipment.id)
-                ], count=True) == 2
-            )
-
-    def test_0030_address_validation(self):
-        """
-        Test address validation with ups
-        """
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
-
-            country_us, = self.Country.search([('code', '=', 'US')])
-
-            subdivision_florida, = self.CountrySubdivision.search(
-                [('code', '=', 'US-FL')]
-            )
-            subdivision_california, = self.CountrySubdivision.search(
-                [('code', '=', 'US-CA')]
-            )
-
-            # Correct Address
-            suggestions = self.Address(**{
-                'name': 'John Doe',
-                'street': '250 NE 25th St',
-                'streetbis': '',
-                'zip': '33141',
-                'city': 'Miami',
-                'country': country_us.id,
-                'subdivision': subdivision_florida.id,
-            }).validate_address()
-            self.assertEqual(suggestions, True)
-
-            # Wrong subdivision
-            suggestions = self.Address(**{
-                'name': 'John Doe',
-                'street': '250 NE 25th St',
-                'streetbis': '',
-                'zip': '33141',
-                'city': 'Miami',
-                'country': country_us.id,
-                'subdivision': subdivision_california.id,
-            }).validate_address()
-            self.assertTrue(len(suggestions) > 0)
-            self.assertEqual(suggestions[0].subdivision, subdivision_florida)
-
-            # Wrong city and subdivision
-            suggestions = self.Address(**{
-                'name': 'John Doe',
-                'street': '250 NE 25th St',
-                'streetbis': '',
-                'zip': '33141',
-                'city': '',
-                'country': country_us.id,
-                'subdivision': subdivision_california.id,
-            }).validate_address()
-            self.assertTrue(len(suggestions) > 1)
-            self.assertEqual(suggestions[0].subdivision, subdivision_florida)
-
-    def test_0035_ups_shipping_rates(self):
-        """
-        Tests the get_ups_shipping_rates() method.
-        """
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
-
-            with Transaction().set_context(company=self.company.id):
-                # Create sale order
-                sale, = self.Sale.create([{
-                    'reference': 'S-1001',
-                    'payment_term': self.payment_term,
-                    'party': self.sale_party.id,
-                    'invoice_address': self.sale_party.addresses[0].id,
-                    'shipment_address': self.sale_party.addresses[0].id,
-                    'carrier': self.carrier.id,
-                    'carrier_service': self.ups_next_day_air,
-                    'ups_saturday_delivery': True,
-                    'lines': [
-                        ('create', [{
-                            'type': 'line',
-                            'quantity': 1,
-                            'product': self.product,
-                            'unit_price': Decimal('10.00'),
-                            'description': 'Test Description1',
-                            'unit': self.product.template.default_uom,
-                        }]),
-                    ]
-                }])
-
-                self.assertEqual(len(sale.lines), 1)
-
-            with Transaction().set_context(sale=sale):
-                rates = sale.get_shipping_rates()
-                pprint(rates)
-                self.assertGreater(rates, 0)
-
+    @with_transaction()
     def test_0040_test_worldship_xml(self):
         """
         Test the worldship cml generation
@@ -674,56 +684,55 @@ class TestUPS(unittest.TestCase):
         StockPackage = POOL.get('stock.package')
         StockPackageType = POOL.get('stock.package.type')
 
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
-            uom_kg, = self.Uom.search([('symbol', '=', 'kg')])
+        self.setup_defaults()
+        uom_kg, = self.Uom.search([('symbol', '=', 'kg')])
 
-            with Transaction().set_context({'company': self.company.id}):
-                shipment, = self.StockShipmentOut.create([{
-                    'planned_date': Date.today(),
-                    'effective_date': Date.today(),
-                    'customer': self.sale_party.id,
-                    'carrier': self.ups_worldship_carrier.id,
-                    'cost_currency': self.ups_worldship_carrier.currency.id,
-                    'warehouse': self.warehouse.id,
-                    'delivery_address': self.sale_party.addresses[0],
-                }])
-                move1, = self.StockMove.create([{
-                    'shipment': ('stock.shipment.out', shipment.id),
-                    'product': self.product.id,
-                    'uom': uom_kg.id,
-                    'quantity': 6,
-                    'from_location': shipment.warehouse.output_location.id,
-                    'to_location': shipment.customer_location.id,
-                    'unit_price': Decimal('1'),
-                    'currency': self.currency.id,
-                }])
-                move2, = self.StockMove.create([{
-                    'shipment': ('stock.shipment.out', shipment.id),
-                    'product': self.product.id,
-                    'uom': uom_kg.id,
-                    'quantity': 4,
-                    'from_location': shipment.warehouse.output_location.id,
-                    'to_location': shipment.customer_location.id,
-                    'unit_price': Decimal('1'),
-                    'currency': self.currency.id,
-                }])
-                stock_package_type, = StockPackageType.search([])
-                package1, package2 = StockPackage.create([{
-                    'type': stock_package_type.id,
-                    'shipment': "%s,%s" % (shipment.__name__, shipment.id),
-                }, {
-                    'type': stock_package_type.id,
-                    'shipment': "%s,%s" % (shipment.__name__, shipment.id),
-                }])
-                package1.moves = [move1]
-                package1.save()
-                package2.moves = [move2]
-                package2.save()
+        with Transaction().set_context({'company': self.company.id}):
+            shipment, = self.StockShipmentOut.create([{
+                'planned_date': Date.today(),
+                'effective_date': Date.today(),
+                'customer': self.sale_party.id,
+                'carrier': self.ups_worldship_carrier.id,
+                'cost_currency': self.ups_worldship_carrier.currency.id,
+                'warehouse': self.warehouse.id,
+                'delivery_address': self.sale_party.addresses[0],
+            }])
+            move1, = self.StockMove.create([{
+                'shipment': ('stock.shipment.out', shipment.id),
+                'product': self.product.id,
+                'uom': uom_kg.id,
+                'quantity': 6,
+                'from_location': shipment.warehouse.output_location.id,
+                'to_location': shipment.customer_location.id,
+                'unit_price': Decimal('1'),
+                'currency': self.currency.id,
+            }])
+            move2, = self.StockMove.create([{
+                'shipment': ('stock.shipment.out', shipment.id),
+                'product': self.product.id,
+                'uom': uom_kg.id,
+                'quantity': 4,
+                'from_location': shipment.warehouse.output_location.id,
+                'to_location': shipment.customer_location.id,
+                'unit_price': Decimal('1'),
+                'currency': self.currency.id,
+            }])
+            stock_package_type, = StockPackageType.search([])
+            package1, package2 = StockPackage.create([{
+                'type': stock_package_type.id,
+                'shipment': "%s,%s" % (shipment.__name__, shipment.id),
+            }, {
+                'type': stock_package_type.id,
+                'shipment': "%s,%s" % (shipment.__name__, shipment.id),
+            }])
+            package1.moves = [move1]
+            package1.save()
+            package2.moves = [move2]
+            package2.save()
 
-                rv = shipment.get_worldship_xml()
-                self.assertTrue('worldship_xml' in rv)
-                assert objectify.fromstring(rv['worldship_xml'])
+            rv = shipment.get_worldship_xml()
+            self.assertTrue('worldship_xml' in rv)
+            assert objectify.fromstring(rv['worldship_xml'])
 
 
 def suite():

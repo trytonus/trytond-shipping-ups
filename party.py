@@ -103,7 +103,8 @@ class Address:
         vals = {
             'CompanyName': company_party.name,
             'AttentionName': self.name or self.party.name,
-            'TaxIdentificationNumber': company_party.vat_number,
+            'TaxIdentificationNumber': company_party.identifiers and
+            company_party.identifiers[0].code or '',
             'PhoneNumber': digits_only_re.sub('', self.party.phone),
         }
 
@@ -128,8 +129,8 @@ class Address:
         party = self.party
 
         tax_identification_number = ''
-        if party.vat_number:
-            tax_identification_number = party.vat_number
+        if party.identifiers:
+            tax_identification_number = party.identifiers[0].code
         elif hasattr(party, 'tax_exemption_number') and \
                 party.tax_exemption_number:
             tax_identification_number = party.tax_exemption_number
@@ -181,7 +182,8 @@ class Address:
 
         vals = {
             'CompanyName': company_party.name,
-            'TaxIdentificationNumber': company_party.vat_number,
+            'TaxIdentificationNumber': company_party.identifiers and
+            company_party.identifiers[0].code or '',
             'Name': self.name or self.party.name,
             'AttentionName': self.name or self.party.name,
             'PhoneNumber': digits_only_re.sub('', self.party.phone),
