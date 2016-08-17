@@ -1,6 +1,6 @@
 <data>
     <xpath expr="/form/field[@name='carrier_cost_method']" position="after">
-        <group string="UPS Configuration" states="{'invisible': Eval('carrier_cost_method') != 'ups'}" id="ups_configuration" colspan="4">
+        <group string="UPS Configuration" id="ups_configuration" colspan="4">
             <label name="ups_license_key"/>
             <field name="ups_license_key"/>
             <label name="ups_user_id"/>
