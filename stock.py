@@ -611,6 +611,9 @@ class Package:
         shipment = self.shipment
         carrier = shipment.carrier
 
+        if not self.box_type:
+            self.raise_user_error('Please specify box type on package')
+
         package_type = ShipmentConfirm.packaging_type(
             Code=self.box_type.code
         )
