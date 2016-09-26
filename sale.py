@@ -133,7 +133,7 @@ class Sale:
                 'carrier': carrier,
                 'ups_is_negotiated': is_negotiated,
                 'ups_negotiated_rate': negotiated_rate,
-                'ups_original_cost': original_cost,
+                'ups_original_cost': Decimal(str(original_cost)),
             }
 
             if hasattr(rated_shipment, 'ScheduledDeliveryTime'):
