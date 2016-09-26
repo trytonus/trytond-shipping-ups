@@ -196,9 +196,12 @@ class ShipmentOut:
         )
 
         package_weight = RatingService.package_weight_type(
-            Weight="%.2f" % Uom.compute_qty(
-                self.weight_uom, self.weight, self.carrier.ups_weight_uom
-            ),
+            Weight="%.2f" % sum(map(
+                lambda p: Uom.compute_qty(
+                    p.weight_uom, p.weight, self.carrier.ups_weight_uom
+                ),
+                self.packages
+            )),
             Code=carrier.ups_weight_uom_code,
         )
         package_service_options = RatingService.package_service_options_type(
