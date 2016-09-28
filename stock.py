@@ -77,6 +77,16 @@ class ShipmentOut:
             package_containers.append(package.get_ups_package_container())
         return package_containers
 
+    def _get_ups_packages_rate(self):
+        """
+        Return UPS Packages XML for shipping rate
+        """
+        package_containers = []
+
+        for package in self.packages:
+            package_containers.append(package.get_ups_package_container_rate())
+        return package_containers
+
     def _get_carrier_context(self):
         "Pass shipment in the context"
         context = super(ShipmentOut, self)._get_carrier_context()
@@ -187,39 +197,18 @@ class ShipmentOut:
         return rates
 
     def _get_rate_request_xml(self, carrier, carrier_service):
-        SaleConfiguration = Pool().get("sale.configuration")
-        Uom = Pool().get('product.uom')
-        config = SaleConfiguration(1)
 
-        package_type = RatingService.packaging_type(
-            Code=config.ups_box_type and config.ups_box_type.code
-        )
-
-        package_weight = RatingService.package_weight_type(
-            Weight="%.2f" % Uom.compute_qty(
-                self.weight_uom, self.weight, self.carrier.ups_weight_uom
-            ),
-            Code=carrier.ups_weight_uom_code,
-        )
-        package_service_options = RatingService.package_service_options_type(
-            RatingService.insured_value_type(MonetaryValue='0')
-        )
-        package_container = RatingService.package_type(
-            package_type,
-            package_weight,
-            package_service_options
-        )
-        shipment_args = [package_container]
+        packages = self._get_ups_packages_rate()
 
         from_address = self._get_ship_from_address()
 
-        shipment_args.extend([
+        shipment_args = [
             from_address.to_ups_shipper(carrier=carrier),  # Shipper
             self.delivery_address.to_ups_to_address(),      # Ship to
             from_address.to_ups_from_address(),   # Ship from
 
-        ])
-
+        ]
+        shipment_args.extend(packages)
         if carrier.ups_negotiated_rates:
             shipment_args.append(
                 RatingService.rate_information_type(negotiated=True)
@@ -617,7 +606,6 @@ class Package:
         package_type = ShipmentConfirm.packaging_type(
             Code=self.box_type.code
         )
-
         package_weight = ShipmentConfirm.package_weight_type(
             Weight="%.2f" % self.weight,
             Code=carrier.ups_weight_uom_code,
@@ -625,9 +613,67 @@ class Package:
         package_service_options = ShipmentConfirm.package_service_options_type(
             ShipmentConfirm.insured_value_type(MonetaryValue='0')
         )
-        package_container = ShipmentConfirm.package_type(
-            package_type,
-            package_weight,
-            package_service_options
+
+        args = [package_type, package_weight, package_service_options]
+
+        # Only send dimensions if the box type is 'Customer Supplied Package'
+        if (self.length and self.width and self.height) and \
+                self.box_type.code == '02':
+            package_dimensions = ShipmentConfirm.dimensions_type(
+                Code=self.distance_unit.symbol.upper(),
+                Length=str(self.length),
+                Width=str(self.width),
+                Height=str(self.height)
+            )
+            args.append(package_dimensions)
+        elif self.box_type.code == '02':
+            self.raise_user_error(
+                'Dimensions are required for custom box type'
+            )
+
+        package_container = ShipmentConfirm.package_type(*args)
+        return package_container
+
+    def get_ups_package_container_rate(self):
+        """
+        Return UPS package container for a single package
+        """
+        shipment = self.shipment
+        carrier = shipment.carrier
+
+        SaleConfiguration = Pool().get("sale.configuration")
+        Uom = Pool().get('product.uom')
+        config = SaleConfiguration(1)
+
+        package_type = RatingService.packaging_type(
+            Code=config.ups_box_type and config.ups_box_type.code
         )
+        package_weight = RatingService.package_weight_type(
+            Weight="%.2f" % Uom.compute_qty(
+                self.weight_uom, self.weight, carrier.ups_weight_uom
+            ),
+            Code=carrier.ups_weight_uom_code,
+        )
+        package_service_options = RatingService.package_service_options_type(
+            RatingService.insured_value_type(MonetaryValue='0')
+        )
+
+        args = [package_type, package_weight, package_service_options]
+
+        # Only send dimensions if the box type is 'Customer Supplied Package'
+        if (self.length and self.width and self.height) and \
+                self.box_type.code == '02':
+            package_dimensions = RatingService.dimensions_type(
+                Code=self.distance_unit.symbol.upper(),
+                Length=str(self.length),
+                Width=str(self.width),
+                Height=str(self.height)
+            )
+            args.append(package_dimensions)
+        elif self.box_type.code == '02':
+            self.raise_user_error(
+                'Dimensions are required for custom box type'
+            )
+
+        package_container = RatingService.package_type(*args)
         return package_container
