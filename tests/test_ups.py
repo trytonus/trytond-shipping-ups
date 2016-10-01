@@ -409,7 +409,7 @@ class TestUPS(ModuleTestCase):
 
     @with_transaction()
     def test_0010_generate_ups_labels(self):
-        """Test case to generate UPS labels.
+        """Test case to generate UPS labels for UPS Letter.
         """
         ModelData = POOL.get('ir.model.data')
 
@@ -434,6 +434,62 @@ class TestUPS(ModuleTestCase):
         with Transaction().set_context(company=self.company.id):
             # Use existing package
             package, = shipment.packages
+            package.length = 22
+            package.width = 20
+            package.height = 18
+            package.box_type = ModelData.get_id(
+                "shipping_ups", "ups_01"
+            )
+            package.type = ModelData.get_id(
+                "shipping", "shipment_package_type"
+            )
+            package.save()
+
+            # Call method to generate labels.
+            shipment.generate_shipping_labels()
+
+        self.assertTrue(shipment.packages)
+        self.assertEqual(len(shipment.packages), 1)
+        self.assertTrue(shipment.packages[0].tracking_number)
+        self.assertEqual(
+            shipment.packages[0].moves, shipment.outgoing_moves)
+        self.assertTrue(
+            self.IrAttachment.search([
+                ('resource', '=', 'shipment.tracking,%s' %
+                 shipment.packages[0].tracking_number.id)
+            ], count=True) > 0
+        )
+
+    @with_transaction()
+    def test_0011_generate_ups_labels_customer_supplied_package(self):
+        """Test case to generate UPS labels for Customer Supplied Package.
+        """
+        ModelData = POOL.get('ir.model.data')
+
+        # Call method to create sale order
+        self.setup_defaults()
+        self.create_sale(self.sale_party)
+
+        shipment, = self.StockShipmentOut.search([])
+        self.StockShipmentOut.write([shipment], {
+            'number': str(int(time())),
+        })
+
+        # Before generating labels
+        # No attachment created for labels
+        attatchment = self.IrAttachment.search([])
+        self.assertEqual(len(attatchment), 0)
+
+        # Make shipment in packed state.
+        shipment.assign([shipment])
+        shipment.pack([shipment])
+
+        with Transaction().set_context(company=self.company.id):
+            # Use existing package
+            package, = shipment.packages
+            package.length = 22
+            package.width = 20
+            package.height = 18
             package.box_type = ModelData.get_id(
                 "shipping_ups", "ups_02"
             )
@@ -520,6 +576,9 @@ class TestUPS(ModuleTestCase):
         shipment.pack([shipment])
 
         package1 = shipment.packages[0]
+        package1.length = 22
+        package1.width = 20
+        package1.height = 18
 
         package1.box_type = ModelData.get_id(
             "shipping_ups", "ups_02"
@@ -531,6 +590,9 @@ class TestUPS(ModuleTestCase):
             'type': type_id,
             'moves': [('add', [shipment.outgoing_moves[1]])],
             'box_type': ModelData.get_id("shipping_ups", "ups_02"),
+            'length': 22,
+            'width': 20,
+            'height':18
         }])
 
         # Before generating labels
@@ -583,6 +645,48 @@ class TestUPS(ModuleTestCase):
         self.assertTrue(
             self.IrAttachment.search([], count=True) == 2
         )
+
+    @with_transaction()
+    def test_0025_generate_ups_shipping_rate_stock(self):
+        """Test case to generate UPS labels for UPS Letter.
+        """
+        ModelData = POOL.get('ir.model.data')
+
+        # Call method to create sale order
+        self.setup_defaults()
+        self.create_sale(self.sale_party)
+
+        shipment, = self.StockShipmentOut.search([])
+        self.StockShipmentOut.write([shipment], {
+            'number': str(int(time())),
+        })
+
+        # Before generating labels
+        # No attachment created for labels
+        attatchment = self.IrAttachment.search([])
+        self.assertEqual(len(attatchment), 0)
+
+        # Make shipment in packed state.
+        shipment.assign([shipment])
+        shipment.pack([shipment])
+
+        with Transaction().set_context(company=self.company.id):
+            # Use existing package
+            package, = shipment.packages
+            package.length = 22
+            package.width = 20
+            package.height = 18
+            package.box_type = ModelData.get_id(
+                "shipping_ups", "ups_01"
+            )
+            package.type = ModelData.get_id(
+                "shipping", "shipment_package_type"
+            )
+            package.save()
+            # Call method to get shipping rate.
+            rate = shipment.get_shipping_rate(carrier=self.carrier)
+            pprint(rate)
+            self.assertGreater(rate, 0)
 
     @with_transaction()
     def test_0030_address_validation(self):
