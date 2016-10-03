@@ -600,12 +600,22 @@ class Package:
         shipment = self.shipment
         carrier = shipment.carrier
 
-        if not self.box_type:
-            self.raise_user_error('Please specify box type on package')
+        if self.box_type:
+            code = self.box_type.code
+            length = self.box_type.length
+            height = self.box_type.height
+            width = self.box_type.width
+            dimensions_symbol = self.box_type.distance_unit and \
+                self.box_type.distance_unit.symbol.upper()
+        else:
+            code = '02'
+            length = self.length
+            height = self.height
+            width = self.width
+            dimensions_symbol = self.distance_unit and \
+                self.distance_unit.symbol.upper()
 
-        package_type = ShipmentConfirm.packaging_type(
-            Code=self.box_type.code
-        )
+        package_type = ShipmentConfirm.packaging_type(Code=code)
         package_weight = ShipmentConfirm.package_weight_type(
             Weight="%.2f" % self.weight,
             Code=carrier.ups_weight_uom_code,
@@ -617,19 +627,14 @@ class Package:
         args = [package_type, package_weight, package_service_options]
 
         # Only send dimensions if the box type is 'Customer Supplied Package'
-        if (self.length and self.width and self.height) and \
-                self.box_type.code == '02':
+        if code == '02' and length and width and height and dimensions_symbol:
             package_dimensions = ShipmentConfirm.dimensions_type(
-                Code=self.distance_unit.symbol.upper(),
-                Length=str(self.length),
-                Width=str(self.width),
-                Height=str(self.height)
+                Code=dimensions_symbol,
+                Length=str(length),
+                Width=str(width),
+                Height=str(height)
             )
             args.append(package_dimensions)
-        elif self.box_type.code == '02':
-            self.raise_user_error(
-                'Dimensions are required for custom box type'
-            )
 
         package_container = ShipmentConfirm.package_type(*args)
         return package_container
@@ -638,16 +643,27 @@ class Package:
         """
         Return UPS package container for a single package
         """
+        Uom = Pool().get('product.uom')
+
         shipment = self.shipment
         carrier = shipment.carrier
 
-        SaleConfiguration = Pool().get("sale.configuration")
-        Uom = Pool().get('product.uom')
-        config = SaleConfiguration(1)
+        if self.box_type:
+            code = self.box_type.code
+            length = self.box_type.length
+            height = self.box_type.height
+            width = self.box_type.width
+            dimensions_symbol = self.box_type.distance_unit and \
+                self.box_type.distance_unit.symbol.upper()
+        else:
+            code = '02'
+            length = self.length
+            height = self.height
+            width = self.width
+            dimensions_symbol = self.distance_unit and \
+                self.distance_unit.symbol.upper()
 
-        package_type = RatingService.packaging_type(
-            Code=config.ups_box_type and config.ups_box_type.code
-        )
+        package_type = RatingService.packaging_type(Code=code)
         package_weight = RatingService.package_weight_type(
             Weight="%.2f" % Uom.compute_qty(
                 self.weight_uom, self.weight, carrier.ups_weight_uom
@@ -661,19 +677,14 @@ class Package:
         args = [package_type, package_weight, package_service_options]
 
         # Only send dimensions if the box type is 'Customer Supplied Package'
-        if (self.length and self.width and self.height) and \
-                self.box_type.code == '02':
+        if code == '02' and length and width and height and dimensions_symbol:
             package_dimensions = RatingService.dimensions_type(
-                Code=self.distance_unit.symbol.upper(),
-                Length=str(self.length),
-                Width=str(self.width),
-                Height=str(self.height)
+                Code=dimensions_symbol,
+                Length=str(length),
+                Width=str(width),
+                Height=str(height)
             )
             args.append(package_dimensions)
-        elif self.box_type.code == '02':
-            self.raise_user_error(
-                'Dimensions are required for custom box type'
-            )
 
         package_container = RatingService.package_type(*args)
         return package_container
