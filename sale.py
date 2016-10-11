@@ -160,9 +160,17 @@ class Sale:
         Uom = Pool().get('product.uom')
         config = SaleConfiguration(1)
 
-        package_type = RatingService.packaging_type(
-            Code=config.ups_box_type and config.ups_box_type.code
-        )
+        code = length = width = height = dimensions_symbol = None
+        box_type = config.ups_box_type
+        if box_type:
+            code = box_type.code
+            length = box_type.length
+            height = box_type.height
+            width = box_type.width
+            dimensions_symbol = box_type.distance_unit and \
+                box_type.distance_unit.symbol.upper()
+
+        package_type = RatingService.packaging_type(Code=code)
 
         package_weight = RatingService.package_weight_type(
             Weight="%.2f" % Uom.compute_qty(
@@ -173,12 +181,20 @@ class Sale:
         package_service_options = RatingService.package_service_options_type(
             RatingService.insured_value_type(MonetaryValue='0')
         )
-        package_container = RatingService.package_type(
-            package_type,
-            package_weight,
-            package_service_options
-        )
-        shipment_args = [package_container]
+
+        args = [package_type, package_weight, package_service_options]
+
+        # Only send dimensions if box type has all information
+        if length and width and height and dimensions_symbol:
+            package_dimensions = RatingService.dimensions_type(
+                Code=dimensions_symbol,
+                Length=str(length),
+                Width=str(width),
+                Height=str(height)
+            )
+            args.append(package_dimensions)
+
+        shipment_args = [RatingService.package_type(*args)]
 
         from_address = self._get_ship_from_address()
 
