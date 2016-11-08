@@ -85,7 +85,7 @@ class Address:
         Company = Pool().get('company.company')
 
         vals = {}
-        if not self.party.phone and not hasattr(self.phone):
+        if not self.party.phone and not getattr(self, 'phone'):
             self.raise_user_error(
                 "ups_field_missing",
                 error_args=('Phone no.', '"from address"')
@@ -100,7 +100,7 @@ class Address:
 
         company_party = Company(company_id).party
 
-        if hasattr(self, 'phone'):
+        if getattr(self, 'phone'):
             phone = getattr(self, 'phone')
         else:
             phone = self.party.phone
@@ -146,7 +146,7 @@ class Address:
             'AttentionName': self.name or party.name,
         }
 
-        if hasattr(self, 'phone'):
+        if getattr(self, 'phone'):
             phone = getattr(self, 'phone')
         else:
             phone = party.phone
@@ -176,7 +176,7 @@ class Address:
         Company = Pool().get('company.company')
 
         vals = {}
-        if not self.party.phone and not hasattr(self.phone):
+        if not self.party.phone and not getattr(self, 'phone'):
             self.raise_user_error(
                 "ups_field_missing",
                 error_args=('Phone no.', '"Shipper Address"')
@@ -190,7 +190,7 @@ class Address:
 
         company_party = Company(company_id).party
 
-        if hasattr(self, 'phone'):
+        if getattr(self, 'phone'):
             phone = getattr(self, 'phone')
         else:
             phone = self.party.phone
@@ -365,7 +365,7 @@ class Address:
             )
         company_party = Company(company_id).party
 
-        if hasattr(self, 'phone'):
+        if getattr(self, 'phone'):
             phone = getattr(self, 'phone')
         else:
             phone = self.party.phone
