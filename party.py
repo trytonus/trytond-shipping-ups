@@ -85,7 +85,7 @@ class Address:
         Company = Pool().get('company.company')
 
         vals = {}
-        if not self.party.phone:
+        if not self.party.phone and not hasattr(self.phone):
             self.raise_user_error(
                 "ups_field_missing",
                 error_args=('Phone no.', '"from address"')
@@ -100,12 +100,17 @@ class Address:
 
         company_party = Company(company_id).party
 
+        if hasattr(self, 'phone'):
+            phone = getattr(self, 'phone')
+        else:
+            phone = self.party.phone
+
         vals = {
             'CompanyName': company_party.name,
             'AttentionName': self.name or self.party.name,
             'TaxIdentificationNumber': company_party.identifiers and
             company_party.identifiers[0].code or '',
-            'PhoneNumber': digits_only_re.sub('', self.party.phone),
+            'PhoneNumber': digits_only_re.sub('', phone),
         }
 
         fax = self.party.fax
@@ -141,8 +146,13 @@ class Address:
             'AttentionName': self.name or party.name,
         }
 
-        if party.phone:
-            vals['PhoneNumber'] = digits_only_re.sub('', party.phone)
+        if hasattr(self, 'phone'):
+            phone = getattr(self, 'phone')
+        else:
+            phone = party.phone
+
+        if phone:
+            vals['PhoneNumber'] = digits_only_re.sub('', phone)
 
         fax = party.fax
         if fax:
@@ -166,7 +176,7 @@ class Address:
         Company = Pool().get('company.company')
 
         vals = {}
-        if not self.party.phone:
+        if not self.party.phone and not hasattr(self.phone):
             self.raise_user_error(
                 "ups_field_missing",
                 error_args=('Phone no.', '"Shipper Address"')
@@ -180,13 +190,18 @@ class Address:
 
         company_party = Company(company_id).party
 
+        if hasattr(self, 'phone'):
+            phone = getattr(self, 'phone')
+        else:
+            phone = self.party.phone
+
         vals = {
             'CompanyName': company_party.name,
             'TaxIdentificationNumber': company_party.identifiers and
             company_party.identifiers[0].code or '',
             'Name': self.name or self.party.name,
             'AttentionName': self.name or self.party.name,
-            'PhoneNumber': digits_only_re.sub('', self.party.phone),
+            'PhoneNumber': digits_only_re.sub('', phone),
             'ShipperNumber': carrier.ups_shipper_no,
         }
 
@@ -350,6 +365,11 @@ class Address:
             )
         company_party = Company(company_id).party
 
+        if hasattr(self, 'phone'):
+            phone = getattr(self, 'phone')
+        else:
+            phone = self.party.phone
+
         vals = {
             'CompanyOrName': company_party.name,
             'Attention': self.name or self.party.name,
@@ -360,7 +380,7 @@ class Address:
             'CityOrTown': self.city or '',
             'StateProvinceCounty':
                 self.subdivision and self.subdivision.code[3:],
-            'Telephone': digits_only_re.sub('', self.party.phone),
+            'Telephone': digits_only_re.sub('', phone),
         }
         return vals
 
