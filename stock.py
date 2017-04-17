@@ -475,7 +475,7 @@ class ShipmentOut:
             if not move.quantity:
                 continue
             values = [
-                E.PartNumber(move.product.code),
+                E.PartNumber(move.product.code or move.product.id),
                 E.DescriptionOfGood(move.product.name),
                 E.InvoiceUnits(str(move.quantity)),
                 E.InvoiceUnitOfMeasure(move.uom.symbol),
